@@ -6,9 +6,12 @@
  same interface or of the interfaces menu are not allowed
  in a single file. -->
   <interface name="obj_lightmixer" label="Obj Context Light Mixer" icon="LOP_lightmixer" showNetworkNavigationBar="false" help_url="">
-    <script><![CDATA[from PySide2 import QtWidgets
+    <script><![CDATA[from PySide2 import QtWidgets, QtGui
 from PySide2.QtCore import Qt
-from PySide2.QtWidgets import QApplication, QSizePolicy, QSpacerItem, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QHBoxLayout
+from PySide2.QtWidgets import QApplication, QAbstractButton, QSizePolicy, QSpacerItem, QCheckBox, QPushButton,QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QHBoxLayout
+from PySide2.QtCore import Qt, QMimeData
+from PySide2.QtGui import QDragEnterEvent, QDropEvent
+
 
 class SmoothQSlider(QSlider):
     def __init__(self, parent=None):
@@ -17,39 +20,44 @@ class SmoothQSlider(QSlider):
         self.setOrientation(Qt.Vertical)
         self.setMinimum(50)
         self.setMaximum(250)
-        self.setStyleSheet( """QSlider::groove:vertical {  
-                                            width: 3px;  
-                                            padding-left:-1px;  
-                                            padding-right:-1px;
-                                            padding-top:-1px;  
-                                            padding-bottom:-1px;
-                                            width: 5px;
-                                        }
-                                        QSlider::tick:horizontal {
-                                            background-color: #FF0000;
-                                            color: #FF0000;
-                                            width: 2px;
-                                            height: 5px;
-                                        }
-                                        QSlider::handle:vertical {
-                                            margin: 0px -10px;
-                                        }
-                                        QSlider::handle:vertical {
-                                            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                                stop:0 #949494, /* Start color */
-                                                stop:1 #767676  /* End color */
-                                            );
-                                            border-top: 1px solid #B3B3B3;
-                                            border-left: 1px solid #B3B3B3;
-                                            border-bottom: 1px solid #4D4D4D;
-                                            border-right: 1px solid #4D4D4D;
-                                            width: 20px; /* Handle width */
-                                            margin: 0px -10px; /* Vertical margin to center the handle */
-                                            border-radius: 10px; /* Handle border radius for a circular shape */
-                                        }
-                                        QSlider {
-                                            width: 20px;
-                                            margin-left:15px;}""")
+        self.setStyleSheet( """
+        QSlider::groove:vertical {  
+            padding-left:-1px;  
+            padding-right:-1px;
+            padding-top:-1px;  
+            padding-bottom:-1px;
+            width: 5px;
+            border:none;
+            background-color: #000;
+        }
+        QSlider::handle:vertical {
+            margin: 0px -10px;
+        }
+        QSlider::add-page {
+            background: #5A8ABC;
+            border-width: 1px;
+            border-left-color: #000000;
+            border-right-color: #004A98;
+        }
+        QSlider::handle:vertical {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #949494,
+                stop:1 #767676 
+            );
+            border-top: 1px solid #B3B3B3;
+            border-left: 1px solid #B3B3B3;
+            border-bottom: 1px solid #4D4D4D;
+            border-right: 1px solid #4D4D4D;
+            width: 20px;
+            margin: 0px -10px;
+            border-radius: 10px;
+        }
+        QSlider {
+            width: 25px;
+            margin:0px;
+            padding:0px;
+            background-color: #4A4A4A;}
+            """)
     
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
@@ -61,21 +69,27 @@ class SmoothQSlider(QSlider):
 
             self.setValue(int(new_value))
           
-class LMLabeledSlider(QWidget):
+class LabeledSlider(QWidget):
     def __init__(self, parent=None, type="intensity"):
         super().__init__(parent)
         
         self.type = type
         
         layout = QHBoxLayout(self)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 6)
         
         ticks_layout = QVBoxLayout()
+        ticks_layout.setSpacing(0)
+        ticks_layout.setContentsMargins(0, 0, 0, 0)
         
-        font_style = "font-size: 10px;" 
+        font_style = "font-size: 10px; background-color: transparent;" 
         
         
         
         if self.type == "intensity":
+            slider1 = SmoothQSlider()
+            slider1.setContentsMargins(0, 0, 0, 0)
         
             inten_max = 100
             inten_min = -1
@@ -89,9 +103,9 @@ class LMLabeledSlider(QWidget):
                 tick_label.setStyleSheet(font_style) 
                 tick_label.setAlignment(Qt.AlignRight)
                 ticks_layout.addWidget(tick_label)
-            layout.addLayout(ticks_layout)
+            slider1.setLayout(ticks_layout)
         
-            slider1 = SmoothQSlider()
+            
             layout.addWidget(slider1)
             
             
@@ -121,25 +135,128 @@ class LightPanelWidget(QWidget):
         super().__init__(parent)
         
         main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(7)
+        main_layout.setContentsMargins(0, 0, 0, 8)
+        self.setStyleSheet("background-color: #373737")
         
+        # Label Light Name
         light_label = QLabel("light1")
         light_label.setAlignment(Qt.AlignCenter)
+        light_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        light_label.setFixedHeight(25)
+        light_label.setStyleSheet( "background-color: #474747;")
         main_layout.addWidget(light_label)
         
-       
+        # Toggle Buttons
+        toggle_button_style = """
+        QPushButton {
+            background-color: #4B4B4B;
+            border-radius: 6px;
+        }
+        QPushButton:checked {
+            background-color: #292929;
+        }
+
+        QPushButton#enable_button:checked {
+            border: 2px solid #FCAF3E;
+        }
+        QPushButton#mute_button:checked {
+            border: 2px solid #F03939;
+        }
+        QPushButton#solo_button:checked {
+            border: 2px solid #F34B7F;
+        }
+        QPushButton:hover {
+            background-color: #939393;
+            border-color: #939393;
+        }
+        QPushButton:checked:hover {
+            background-color: #939393;
+        }
+        QToolTip {
+            background-color: #000000;
+        }
+        """
+        
+        enable_button = QPushButton()
+        enable_button.setCheckable(True)
+        enable_button.setChecked(True)
+        enable_icon = hou.qt.Icon("SCENEGRAPH_spherelight", 20, 20)
+        enable_button.setIcon(enable_icon)
+        enable_button.setObjectName("enable_button")
+        enable_button.setStyleSheet(toggle_button_style)
+        enable_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        enable_button.setToolTip("Enable/Disable")
+        enable_button.setFixedSize(50, 24)
+        main_layout.addWidget(enable_button, alignment=Qt.AlignHCenter)
+        
+        twobuttons_layout = QHBoxLayout()
+        twobuttons_layout.setSpacing(4)
+        twobuttons_layout.setContentsMargins(4, 0, 4, 0)
+        
+        mute_button = QPushButton()
+        mute_button.setCheckable(True)
+        mute_button.setObjectName("mute_button")
+        mute_icon = hou.qt.Icon("SCENEGRAPH_mute", 20, 20)
+        mute_button.setIcon(mute_icon)
+        mute_button.setStyleSheet(toggle_button_style)
+        mute_button.setToolTip("Mute")
+        mute_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        mute_button.setFixedHeight(24)
+        twobuttons_layout.addWidget(mute_button)
+        
+        
+        solo_button = QPushButton()
+        solo_button.setCheckable(True)
+        solo_button.setObjectName("solo_button")
+        solo_icon = hou.qt.Icon("SCENEGRAPH_solo_enabled", 20, 20)
+        solo_button.setIcon(solo_icon)
+        solo_button.setStyleSheet(toggle_button_style)
+        solo_button.setToolTip("Solo")
+        solo_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        solo_button.setFixedHeight(24)
+        twobuttons_layout.addWidget(solo_button)
+        
+        main_layout.addLayout(twobuttons_layout)
+        
+        
         
         # Vertical sliders
+        ranges_layout = QHBoxLayout()
+        ranges_layout.setSpacing(0)
+        ranges_layout.setContentsMargins(0, 0, 0, 0)
+        
+        intensity_range = QPushButton()
+        intensity_icon = hou.qt.Icon("SCENEGRAPH_attr_intensity", 20, 20)
+        intensity_range.setIcon(intensity_icon)
+        ranges_layout.addWidget(intensity_range)
+        
+        exposure_range = QPushButton()
+        exposure_icon = hou.qt.Icon("SCENEGRAPH_attr_exposure", 20, 20)
+        exposure_range.setIcon(exposure_icon)
+        ranges_layout.addWidget(exposure_range)
+        
+        main_layout.addLayout(ranges_layout)
+        
         sliders_layout = QHBoxLayout()
+        sliders_layout.setSpacing(0)
 
-        slider_intensity = LMLabeledSlider(type="intensity")  
+        slider_intensity = LabeledSlider(type="intensity")  
         sliders_layout.addWidget(slider_intensity)
         
-        slider_exposure = LMLabeledSlider(type="exposure")
+        slider_exposure = LabeledSlider(type="exposure")
         sliders_layout.addWidget(slider_exposure)
         main_layout.addLayout(sliders_layout)
+        
+        color_picker = hou.qt.ColorSwatchButton()
+        # color_picker.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        color_picker.setFixedSize(50, 30)
+        color_picker.setStyleSheet("border: 5px solid #000000;")
+        main_layout.addWidget(color_picker, alignment=Qt.AlignHCenter)
       
         
-        self.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.setFixedWidth(90)
         
     def eventFilter(self, obj, event):
         print("sth")
@@ -154,25 +271,55 @@ class LightPanelWidget(QWidget):
 
         return super().eventFilter(obj, event)
 
+class DropOffArea(QWidget):
+    def __init__(self):
+        super().__init__()
+        
+        self.layout = QHBoxLayout()
+        self.setLayout(self.layout)
+        
+        
 
+        self.label = QLabel('Drag & drop RS Lights here', self)
+        
+        icon = hou.qt.Icon("BUTTONS_material_include", 20, 20)
+        # self.label.setIcon(icon)
+        
+        self.label.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.label)
+
+        self.setAcceptDrops(True)
+        
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().hasFormat('text/plain'):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event: QDropEvent):
+        label_index = self.layout.indexOf(self.label)
+
+        data = event.mimeData()
+        if data.hasText():
+            node_info = data.text()
+            
+            
+            if label_index != -1:
+                self.layout.removeWidget(self.label)
+                self.label.deleteLater()
+            
+            
+            self.label.setText(f'Dropped Node Info: {node_info}')
+
+
+            
 def createInterface():
-     # Create a calendar widget and a label.
-     # calendar = QtWidgets.QCalendarWidget()
-     # title = QtWidgets.QLabel("My Calendar")
-
-     # Create a widget with a vertical box layout.
-     # Add the label and calendar to the layout.
      root_widget = QtWidgets.QWidget()
      layout = QtWidgets.QVBoxLayout()
+     layout.setSpacing(0)
+     layout.setContentsMargins(0, 0, 0, 0)
      
-     slider = LightPanelWidget()
-     # slider.setStyleSheet("""
-     #        QSlider::handle:vertical {
-     #            height: 20px; /* Increase the handle's height */
-     #            width: 50px;
-                
-     #        }
-     #    """)
+     # slider = LightPanelWidget()
+     # slider = DropOffArea()
+
      layout.addWidget(LightPanelWidget())
      
      # layout.addWidget(title)
