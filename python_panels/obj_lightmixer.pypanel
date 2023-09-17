@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pythonPanelDocument>
+  <!-- This file contains definitions of Python interfaces and the
+ interfaces menu.  It should not be hand-edited when it is being
+ used by the application.  Note, that two definitions of the
+ same interface or of the interfaces menu are not allowed
+ in a single file. -->
+  <interface name="obj_lightmixer" label="Obj Context Light Mixer" icon="LOP_lightmixer" showNetworkNavigationBar="false" help_url="">
+    <script><![CDATA[from PySide2 import QtWidgets
+from PySide2.QtCore import Qt
+from PySide2.QtWidgets import QApplication, QSizePolicy, QSpacerItem, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QHBoxLayout
+
+class SmoothQSlider(QSlider):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        self.setOrientation(Qt.Vertical)
+        self.setMinimum(50)
+        self.setMaximum(250)
+        self.setStyleSheet( """QSlider::groove:vertical {  
+                                            width: 3px;  
+                                            padding-left:-1px;  
+                                            padding-right:-1px;
+                                            padding-top:-1px;  
+                                            padding-bottom:-1px;
+                                            width: 5px;
+                                        }
+                                        QSlider::tick:horizontal {
+                                            background-color: #FF0000;
+                                            color: #FF0000;
+                                            width: 2px;
+                                            height: 5px;
+                                        }
+                                        QSlider::handle:vertical {
+                                            margin: 0px -10px;
+                                        }
+                                        QSlider::handle:vertical {
+                                            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                                stop:0 #949494, /* Start color */
+                                                stop:1 #767676  /* End color */
+                                            );
+                                            border-top: 1px solid #B3B3B3;
+                                            border-left: 1px solid #B3B3B3;
+                                            border-bottom: 1px solid #4D4D4D;
+                                            border-right: 1px solid #4D4D4D;
+                                            width: 20px; /* Handle width */
+                                            margin: 0px -10px; /* Vertical margin to center the handle */
+                                            border-radius: 10px; /* Handle border radius for a circular shape */
+                                        }
+                                        QSlider {
+                                            width: 20px;
+                                            margin-left:15px;}""")
+    
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        self.mouseMoveEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.LeftButton:
+            new_value = self.maximum() - ((self.maximum() - self.minimum()) * event.y()) / self.height()
+
+            self.setValue(int(new_value))
+          
+class LMLabeledSlider(QWidget):
+    def __init__(self, parent=None, type="intensity"):
+        super().__init__(parent)
+        
+        self.type = type
+        
+        layout = QHBoxLayout(self)
+        
+        ticks_layout = QVBoxLayout()
+        
+        font_style = "font-size: 10px;" 
+        
+        
+        
+        if self.type == "intensity":
+        
+            inten_max = 100
+            inten_min = -1
+            inten_step = int(inten_max/5)
+            
+            for tick_value in range(inten_max, inten_min, -inten_step):
+                if tick_value > inten_min and tick_value < inten_max:
+                    spacer = QSpacerItem(10, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
+                    ticks_layout.addItem(spacer)
+                tick_label = QLabel(str(tick_value))
+                tick_label.setStyleSheet(font_style) 
+                tick_label.setAlignment(Qt.AlignRight)
+                ticks_layout.addWidget(tick_label)
+            layout.addLayout(ticks_layout)
+        
+            slider1 = SmoothQSlider()
+            layout.addWidget(slider1)
+            
+            
+        if self.type == "exposure":
+            slider1 = SmoothQSlider()
+            layout.addWidget(slider1)
+            
+            expo_max = 3 *100
+            expo_min = -4 *100
+            expo_step = int(expo_max/5)
+            
+            for tick_value in range(expo_max, expo_min, -expo_step):
+                if tick_value > expo_min and tick_value < expo_max:
+                    spacer = QSpacerItem(10, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
+                    ticks_layout.addItem(spacer)
+                tick_label = QLabel("Æ")
+                tick_label.setStyleSheet(font_style) 
+                tick_label.setAlignment(Qt.AlignLeft)
+                ticks_layout.addWidget(tick_label)
+            layout.addLayout(ticks_layout)
+        
+        
+
+
+class LightPanelWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        main_layout = QVBoxLayout(self)
+        
+        light_label = QLabel("light1")
+        light_label.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(light_label)
+        
+       
+        
+        # Vertical sliders
+        sliders_layout = QHBoxLayout()
+
+        slider_intensity = LMLabeledSlider(type="intensity")  
+        sliders_layout.addWidget(slider_intensity)
+        
+        slider_exposure = LMLabeledSlider(type="exposure")
+        sliders_layout.addWidget(slider_exposure)
+        main_layout.addLayout(sliders_layout)
+      
+        
+        self.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Expanding)
+        
+    def eventFilter(self, obj, event):
+        print("sth")
+        if obj == self.slider and event.type() == QEvent.MouseMove:
+            if event.buttons() & Qt.LeftButton:
+                # Calculate the new slider value based on the mouse position
+                new_value = self.slider.minimum() + \
+                            ((self.slider.maximum() - self.slider.minimum()) *
+                             (event.y() / self.slider.height()))
+                self.slider.setValue(int(new_value))
+                return True
+
+        return super().eventFilter(obj, event)
+
+
+def createInterface():
+     # Create a calendar widget and a label.
+     # calendar = QtWidgets.QCalendarWidget()
+     # title = QtWidgets.QLabel("My Calendar")
+
+     # Create a widget with a vertical box layout.
+     # Add the label and calendar to the layout.
+     root_widget = QtWidgets.QWidget()
+     layout = QtWidgets.QVBoxLayout()
+     
+     slider = LightPanelWidget()
+     # slider.setStyleSheet("""
+     #        QSlider::handle:vertical {
+     #            height: 20px; /* Increase the handle's height */
+     #            width: 50px;
+                
+     #        }
+     #    """)
+     layout.addWidget(LightPanelWidget())
+     
+     # layout.addWidget(title)
+     # layout.addWidget(calendar)
+     root_widget.setLayout(layout)
+
+     # Return the top-level widget.
+     return root_widget
+]]></script>
+    <includeInPaneTabMenu menu_position="0" create_separator="false"/>
+    <includeInToolbarMenu menu_position="109" create_separator="false"/>
+    <help><![CDATA[]]></help>
+  </interface>
+</pythonPanelDocument>

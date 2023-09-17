@@ -1,0 +1,8 @@
+{
+	"env": [{
+		"OBJ_LM": "C:/Users/Xander/Documents/houdini_packages/Obj_Lightmixer"
+	}],
+
+	"path": "$OBJ_LM",
+	"package_path": "$OBJ_LM/packages"
+}
