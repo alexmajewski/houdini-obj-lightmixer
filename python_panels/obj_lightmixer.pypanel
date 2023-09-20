@@ -314,6 +314,14 @@ class LabeledSlider(QWidget):
             
         # }
         
+        """
+            if 1000 : 500 - 1500
+            if 800 : 500 - 1000
+            if 100 50-150
+            if 50 0 - 100
+            if 5 0 - 50
+        """
+        
         if type == "intensity":
             # new_min = self.roundToNearest(
             if -1000 < value <= -100:
@@ -819,8 +827,11 @@ class LightPanelWidget(QWidget):
         parent.layout.removeWidget(self)
         self.deleteLater()
         node_id = self.node_object.sessionId()
+
         if node_id in parent.light_ids:
             parent.light_ids.remove(node_id)
+        if not parent.light_ids:
+            parent.showPlaceholderText()
 
 class DropOffArea(QWidget):
     def __init__(self):
@@ -829,7 +840,6 @@ class DropOffArea(QWidget):
         # --------
         
         self.light_ids = []
-        self.light_panels = []
         self.solo_memory = {}
         self.accepted_nodes = ["rslight", "rslightdome", "rslighties", "rslightportal", "rslightsun"]
         self.is_placeholder_removed = False
@@ -859,17 +869,16 @@ class DropOffArea(QWidget):
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.wrapper.setLayout(self.layout)
         
-        self.spacer = QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
         
-        # self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self.label = QLabel('Drag & drop Redshift Lights here', self)
-        
         icon = hou.qt.Icon("BUTTONS_material_include", 20, 20)
-        # self.label.setIcon(icon)
         
         self.label.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.label)
+        
+        self.spacer = QSpacerItem(0, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.layout.addItem(self.spacer)
 
         self.setAcceptDrops(True)
     
@@ -898,8 +907,16 @@ class DropOffArea(QWidget):
     def unlist(self, node_id):
         if node_id in self.light_ids:
             self.light_ids.remove(node_id)
-            
+    
+    def showPlaceholderText(self):
+        self.label.setVisible(True)
+        self.layout.removeItem(self.spacer)
+        self.spacer = QSpacerItem(0, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.layout.addItem(self.spacer)
 
+        self.is_placeholder_removed = False
+
+        
     def toggleSolo(self, object, node_object):
         isChecked = object.solo_button.isChecked()
         
@@ -924,7 +941,7 @@ class DropOffArea(QWidget):
             self.solo_memory.clear()
         
                 
-        for light_panel in self.light_panels:
+        for light_panel in self.findChildren(LightPanelWidget):
 
             if light_panel.name != node_object.name():
                 light_panel.solo_button.setChecked(False)
@@ -935,8 +952,9 @@ class DropOffArea(QWidget):
             else:
                 light_panel.enable_button.setEnabled(True)
 
-               
-            
+                
+              
+        
     def removeSuffix(self, string):
         split_string = string.split(':')
         return split_string[0]
@@ -969,14 +987,14 @@ class DropOffArea(QWidget):
                         # Remove placeholder text
                         if not self.is_placeholder_removed:
                             if label_index != -1:
-                                self.layout.removeWidget(self.label)
-                                self.label.deleteLater()
-                                self.label = None
-                                self.layout.addItem(self.spacer)
+                                self.label.setVisible(False)
+                       
+                                self.spacer.changeSize(0, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
                             self.is_placeholder_removed = True
                         # Add Panel
-                        self.light_panels.append(LightPanelWidget(node, parent=self))
-                        self.layout.insertWidget(self.layout.count() - 1, self.light_panels[-1])
+                        
+      
+                        self.layout.insertWidget(self.layout.count() - 1, LightPanelWidget(node, parent=self))
                         self.light_ids.append(node_id)
 
 
@@ -986,17 +1004,11 @@ def createInterface():
      layout = QtWidgets.QVBoxLayout()
      layout.setSpacing(0)
      layout.setContentsMargins(0, 0, 0, 0)
-     
-     # slider = LightPanelWidget()
-     # slider = DropOffArea()
 
      layout.addWidget(DropOffArea())
      
-     # layout.addWidget(title)
-     # layout.addWidget(calendar)
      root_widget.setLayout(layout)
 
-     # Return the top-level widget.
      return root_widget
 ]]></script>
     <includeInPaneTabMenu menu_position="0" create_separator="false"/>
