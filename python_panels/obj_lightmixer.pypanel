@@ -10,7 +10,7 @@
 from PySide2.QtCore import Qt
 from PySide2.QtWidgets import QApplication, QToolTip, QFrame, QScrollArea, QAbstractButton, QGridLayout, QSizePolicy, QSpacerItem, QCheckBox, QPushButton, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QHBoxLayout
 from PySide2.QtCore import Qt, QMimeData
-from PySide2.QtGui import QDragEnterEvent, QDropEvent
+from PySide2.QtGui import QDragEnterEvent, QDropEvent, QColor
 
 
 class SmoothQSlider(QSlider):
@@ -94,6 +94,9 @@ class LabeledSlider(QWidget):
     def __init__(self, type="intensity"):
         super().__init__()
         
+        self.current_min = 0
+        self.current_max = 100
+        
         self.type = type
         # self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         # self.setFixedWidth(90)
@@ -128,9 +131,11 @@ class LabeledSlider(QWidget):
             self.slider = SmoothQSlider()
         
             inten_max = 100
-            inten_min = -1
-            inten_step = int(inten_max / (tick_amount - 1) )
-            inten_dash_step = int( inten_max / (tick_amount * 2 - 1) )
+            inten_min = -9
+            inten_step = 25
+            # inten_step = int(inten_max / (tick_amount - 1) )
+            inten_dash_step = 25
+            # inten_dash_step = int( inten_max / (tick_amount * 2 - 1) )
             
             # Styles
             font_layout_style = "QLabel {padding-right: 18px;}"
@@ -160,7 +165,7 @@ class LabeledSlider(QWidget):
                 tick_dash = QFrame()
                 tick_dash.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
                 tick_dash.setFixedHeight(10)
-                if tick % 2 == 0:
+                if tick % 3 == 0:
                     tick_dash.setFixedWidth(6)
                 else:
                     tick_dash.setFixedWidth(3)
@@ -187,9 +192,10 @@ class LabeledSlider(QWidget):
             dashticks_layout.setContentsMargins(11, 0, 0, 0)
             font_layout_style = "QLabel {padding-left: 16px;}"
             
-            expo_max = 1 *100
-            expo_min = -1 *100
-            expo_step = int((expo_max-expo_min)/ (tick_amount - 1) )
+            expo_max = int(1.25 *100)
+            expo_min = int(-1.25 *100)
+            # expo_step = int((expo_max-expo_min)/ (tick_amount - 1) )
+            expo_step = int(0.5 * 100)
             
             # Fstop labels ---------------------
             for index, tick_value in enumerate(range(expo_max, expo_min, -expo_step)):
@@ -214,14 +220,14 @@ class LabeledSlider(QWidget):
             layout.addWidget(ticks, 0, 2, 1, 1)
             
             # Dash ticks
-            for tick in range(tick_amount):
-                if 0 < tick < tick_amount:
+            for tick in range(tick_amount * 2 -1):
+                if 0 < tick < tick_amount*2-1:
                     spacer = QSpacerItem(10, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
                     dashticks_layout.addItem(spacer)
                 tick_dash = QFrame()
                 tick_dash.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
                 tick_dash.setFixedHeight(10)
-                if tick % 2 == 0:
+                if tick % 3 == 0:
                     tick_dash.setFixedWidth(6)
                 else:
                     tick_dash.setFixedWidth(3)
@@ -251,53 +257,96 @@ class LabeledSlider(QWidget):
         step_size = full_range / (num_steps -1)
         
         
-        if full_range >= num_steps:
-            for i in range(num_steps):
+        for i in range(num_steps):
+            if full_range >= num_steps:
                 step_value = int(range_max - step_size * i)
-                if type == "intensity":
-                    if step_value >= 1000 or step_value <= -1000:
-                        step_value = f"{step_value // 1000}K"
+            else:
+                step_value = range_max - step_size * i
+            if type == "intensity":
+                if step_value >= 1000 or step_value <= -1000:
+                    step_value = f"{step_value // 1000}K"
+                self.tick_labels[i].setText(str(step_value))
+            elif type == "exposure":
+                if step_value >= 0:
+                    step_value = f"Æ+{step_value}"
                     self.tick_labels[i].setText(str(step_value))
-                elif type == "exposure":
-                    if step_value >= 0:
-                        step_value = f"Æ+{step_value}"
-                        self.tick_labels[i].setText(str(step_value))
-                    else:
-                        step_value = f"Æ{step_value}"
-                        self.tick_labels[i].setText(str(step_value))
+                else:
+                    step_value = f"Æ{step_value}"
+                    self.tick_labels[i].setText(str(step_value))
+        
+        # if full_range >= num_steps:
+        #     for i in range(num_steps):
+        #         step_value = int(range_max - step_size * i)
+        #         if type == "intensity":
+        #             if step_value >= 1000 or step_value <= -1000:
+        #                 step_value = f"{step_value // 1000}K"
+        #             self.tick_labels[i].setText(str(step_value))
+        #         elif type == "exposure":
+        #             if step_value >= 0:
+        #                 step_value = f"Æ+{step_value}"
+        #                 self.tick_labels[i].setText(str(step_value))
+        #             else:
+        #                 step_value = f"Æ{step_value}"
+        #                 self.tick_labels[i].setText(str(step_value))
+
     
     def roundToNearest(self, value, roundto):
         return round(value / roundto) * roundto
     
+        
     def setSliderRange(self, object, min, max):
-        min = min * 100
-        max = max * 100
-        object.slider.setRange(min, max)
+        new_min = min * 100
+        new_max = max * 100
+        object.slider.setRange(new_min, new_max)
+        self.current_min = min
+        self.current_max = max
         # object.slider.setTickInterval(30)
         # object.slider.setSingleStep( (max - min) / 100 )
         # object.slider.setSingleStep(  6)
         
     def autoSliderRange(self, object, value, type="intensity"):
         # estimate an initial range based off value
+        # ranges_dict = {
+        #     1000: 500,
+        #     500: 250,
+        #     100: 100,
+        #     50: 50,
+            
+        # }
         
-
-        if -1000 < value <= -100:
-            new_min = self.roundToNearest(value-500, 500)
-            new_max = self.roundToNearest(value+500, 500)
-            self.setSliderRange(object, new_min, new_max)
-            self.setTickLabels(new_min, new_max, type)
-        elif -100 < value <= -25:
-            new_min = self.roundToNearest(value-50, 50)
-            new_max = self.roundToNearest(value+50, 50)
-            self.setSliderRange(object, new_min, new_max)
-            self.setTickLabels(new_min, new_max, type)
-        elif -25 < value <= 0:
-            new_min = self.roundToNearest(value-10, 10)
-            new_max = self.roundToNearest(value+10, 10)
-            self.setSliderRange(object, new_min, new_max)
-            self.setTickLabels(new_min, new_max, type)
-        else:
-            self.setSliderRange(object, 0, 250)
+        if type == "intensity":
+            # new_min = self.roundToNearest(
+            if -1000 < value <= -100:
+                new_min = self.roundToNearest(value-500, 500)
+                new_max = self.roundToNearest(value+500, 500)
+                self.setSliderRange(object, new_min, new_max)
+                self.setTickLabels(new_min, new_max, type)
+            elif -100 < value <= -25:
+                new_min = self.roundToNearest(value-50, 50)
+                new_max = self.roundToNearest(value+50, 50)
+                self.setSliderRange(object, new_min, new_max)
+                self.setTickLabels(new_min, new_max, type)
+            elif -25 < value <= 0:
+                new_min = self.roundToNearest(value-10, 10)
+                new_max = self.roundToNearest(value+10, 10)
+                self.setSliderRange(object, new_min, new_max)
+                self.setTickLabels(new_min, new_max, type)
+            elif 0 < value < 10:
+                new_min = 0
+                new_max = 50
+                self.setSliderRange(object, new_min, new_max)
+                self.setTickLabels(new_min, new_max, type)
+    
+            else:
+                self.setSliderRange(object, 0, 100)
+                self.setTickLabels(0, 100, type)
+        elif type == "exposure":
+            if -3 < value < 3:
+                self.setSliderRange(object, -5, 5)
+                self.setTickLabels(-5, 5, type)
+            else:
+                self.setSliderRange(object, 0, 100)
+                self.setTickLabels(0, 100, type)
         
     def setRangeInWidgets():
         # sets range of the slider and adjusts labels
@@ -308,10 +357,10 @@ class LabeledSlider(QWidget):
 
 class LightPanelWidget(QWidget):
     def __init__(self, node_object, parent=None):
-        super().__init__(parent=parent)
+        super().__init__(parent)
         
         self.name = node_object.name()
-        self.type = self.removeNodeVersion(node_object.type().name())
+        self.type = self.removeSuffix(node_object.type().name())
 
         
         
@@ -345,13 +394,31 @@ class LightPanelWidget(QWidget):
         """)
         
         
+        delete_button = QPushButton()
+        delete_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        # delete_button.setAlignment(Qt.AlignRight)
+        delete_button.setFixedSize(11,11)
+        delete_icon = hou.qt.Icon("BUTTONS_delete", 10, 10)
+        delete_button.setIcon(delete_icon)
+        delete_button.clicked.connect(self.removeSelf)
+        
         # Label Light Name
         light_label = QLabel(self.name)
         light_label.setAlignment(Qt.AlignCenter)
         light_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         light_label.setFixedHeight(25)
         light_label.setStyleSheet( "background-color: #474747;")
-        main_layout.addWidget(light_label)
+        # main_layout.addWidget(light_label)
+        
+        header = QWidget()
+        header_layout = QGridLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setAlignment(Qt.AlignTop)
+        header.setLayout(header_layout)
+        header_layout.addWidget(light_label, 0, 0, 2, 2)
+        header_layout.addWidget(delete_button, 0, 1, 1, 1)
+        main_layout.addWidget(header)
+        # light_label.setWidget(delete_button)
         
         # Toggle Buttons
         toggle_button_style = """
@@ -444,6 +511,25 @@ class LightPanelWidget(QWidget):
         
         
         # Vertical sliders
+        intensity_parm_dict = {
+            'rslight' : 'RSL_intensityMultiplier',
+            'rslightdome' : 'light_intensity',
+            'rslighties' : 'multiplier',
+            'rslightportal' : 'Light_Portal1_multiplier',
+            'rslightsun' : 'PhysicalSun1_multiplier'            
+        }
+        
+        exposure_parm_dict = {
+            'rslight' : 'Light1_exposure',
+            'rslightdome' : 'RSL_exposure',
+            'rslighties' : 'Light_IES1_exposure',
+            'rslightportal' : 'Light_Portal1_exposure',
+            'rslightsun' : None  
+        }
+        intensity_parm = self.node_object.parm(intensity_parm_dict[self.type])
+        exposure_parm = self.node_object.parm(exposure_parm_dict[self.type])
+        
+        
         ranges_layout = QHBoxLayout()
         ranges_layout.setSpacing(1)
         ranges_layout.setContentsMargins(20, 0, 20, 0)
@@ -463,14 +549,20 @@ class LightPanelWidget(QWidget):
         intensity_icon = hou.qt.Icon("SCENEGRAPH_attr_intensity", 20, 20)
         intensity_range.setIcon(intensity_icon)
         intensity_range.setStyleSheet(ranges_style)
-        intensity_range.clicked.connect(self.intensity_dialog)
+        if intensity_range:
+            intensity_range.clicked.connect(self.intensity_dialog)
+        else:
+            intensity_range.setEnabled(False)
         ranges_layout.addWidget(intensity_range)
         
         exposure_range = QPushButton()
         exposure_icon = hou.qt.Icon("SCENEGRAPH_attr_exposure", 20, 20)
         exposure_range.setIcon(exposure_icon)
         exposure_range.setStyleSheet(ranges_style)
-        exposure_range.clicked.connect(self.exposure_dialog)
+        if exposure_parm:
+            exposure_range.clicked.connect(self.exposure_dialog)
+        else:
+            exposure_range.setEnabled(False)
         ranges_layout.addWidget(exposure_range)
         
         main_layout.addLayout(ranges_layout)
@@ -481,59 +573,50 @@ class LightPanelWidget(QWidget):
         
         
         
-        intensity_parm_dict = {
-            'rslight' : 'RSL_intensityMultiplier',
-            'rslightdome' : 'light_intensity',
-            'rslighties' : 'multiplier',
-            'rslightportal' : 'Light_Portal1_multiplier',
-            'rslightsun' : 'PhysicalSun1_multiplier'            
-        }
-        
-        exposure_parm_dict = {
-            'rslight' : 'Light1_exposure',
-            'rslightdome' : 'RSL_exposure',
-            'rslighties' : 'Light_IES1_exposure',
-            'rslightportal' : 'Light_Portal1_exposure',
-            'rslightsun' : None  
-        }
         
 
-        slider_intensity = LabeledSlider(type="intensity")
-        slider_intensity.setObjectName("intensity")
-        slider_intensity.setToolTip("Intensity")
+        self.slider_intensity = LabeledSlider(type="intensity")
+        self.slider_intensity.setObjectName("intensity")
+        self.slider_intensity.setToolTip("Intensity")
 
-        intensity_parm = self.node_object.parm(intensity_parm_dict[self.type])
+        
         if intensity_parm:
-            intensity_value = intensity_parm.eval()
-            intensity_value *= 100
+            self.intensity_value = intensity_parm.eval()
             
-            slider_intensity.autoSliderRange(slider_intensity, intensity_value, type="intensity")
-            slider_intensity.slider.setValue(intensity_value)
-            slider_intensity.slider.valueChanged.connect(lambda: self.updateParameter(intensity_parm, slider_intensity.slider.value()/100)) 
+            self.slider_intensity.autoSliderRange(self.slider_intensity, self.intensity_value, type="intensity")
+            
+            self.intensity_value *= 100
+            # print("intensity is ", self.intensity_value)
+            
+            self.slider_intensity.slider.setValue(self.intensity_value)
+            self.slider_intensity.slider.valueChanged.connect(lambda: self.updateParameter(intensity_parm, self.slider_intensity.slider.value()/100)) 
         else:
-            slider_intensity.setEnabled(False)
+            self.slider_intensity.setEnabled(False)
         
         
-        sliders_layout.addWidget(slider_intensity)
+        sliders_layout.addWidget(self.slider_intensity)
         
         # -----------------
         
-        slider_exposure = LabeledSlider(type="exposure")
-        slider_exposure.setObjectName("exposure")
-        slider_exposure.setToolTip("Exposure")
+        self.slider_exposure = LabeledSlider(type="exposure")
+        self.slider_exposure.setObjectName("exposure")
+        self.slider_exposure.setToolTip("Exposure")
         
-        exposure_parm = self.node_object.parm(exposure_parm_dict[self.type])
+        
+        
         if exposure_parm:
-            exposure_value = exposure_parm.eval()
-            exposure_value *= 100
+            self.exposure_value = exposure_parm.eval()
             
-            slider_exposure.slider.setValue( exposure_value )
-            slider_exposure.slider.valueChanged.connect(lambda: self.updateParameter(exposure_parm, slider_exposure.slider.value()/100) )
+            self.slider_exposure.autoSliderRange(self.slider_exposure, self.exposure_value, type="exposure")
+           
+            self.exposure_value *= 100
+            # print("maximum ", self.slider_exposure.slider.maximum())
+            self.slider_exposure.slider.setValue( self.exposure_value )
+            self.slider_exposure.slider.valueChanged.connect(lambda: self.updateParameter(exposure_parm, self.slider_exposure.slider.value()/100) )
         else:
-            slider_exposure.setEnabled(False)
-            
-        slider_exposure.setTickLabels(-10, 10, type="exposure")    
-        sliders_layout.addWidget(slider_exposure)
+            self.slider_exposure.setEnabled(False)
+             
+        sliders_layout.addWidget(self.slider_exposure)
         
         
         # ------------------
@@ -591,18 +674,22 @@ class LightPanelWidget(QWidget):
             
             spread_parm = self.node_object.parm("RSL_spread")
             slider_spread.valueChanged.connect(lambda: self.updateParameter(spread_parm, slider_spread.value()/100)) 
-        
-        self.color_picker = hou.qt.ColorSwatchButton()
-        self.color_picker.setFixedSize(50, 30)
-        self.color_picker.setStyleSheet("border: 5px solid #000000;")
-        self.color_picker.colorChanged.connect(self.setLightColor)
-        main_layout.addWidget(self.color_picker, alignment=Qt.AlignHCenter)
+             
+        if self.node_object.parm("light_colorr"):
+            self.color_picker = hou.qt.ColorSwatchButton()
+            
+            self.color_picker.setColor(self.getLightColor())
+                
+            self.color_picker.setFixedSize(50, 30)
+            self.color_picker.setStyleSheet("border: 5px solid #000000;")
+            self.color_picker.colorChanged.connect(self.setLightColor)
+            main_layout.addWidget(self.color_picker, alignment=Qt.AlignHCenter)
       
         
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.setFixedWidth(90)
         
-    def removeNodeVersion(self, string):
+    def removeSuffix(self, string):
         split_string = string.split(':')
         return split_string[0]
         
@@ -639,6 +726,19 @@ class LightPanelWidget(QWidget):
     def setEnabled(self, value):
         self.node_object.parm("light_enabled").set(int(value))
         
+    def getLightColor(self):
+        isUseTexture = self.node_object.parm("RSColorLayer1_layer1_enable").eval()
+        if not isUseTexture:
+            r = self.node_object.parm("light_colorr").eval() * 255
+            g = self.node_object.parm("light_colorg").eval() * 255
+            b = self.node_object.parm("light_colorb").eval() * 255
+            return QColor(r, g, b)
+        else: 
+            r = self.node_object.parm("TextureSampler1_color_multiplierr").eval() * 255
+            g = self.node_object.parm("TextureSampler1_color_multiplierg").eval() * 255
+            b = self.node_object.parm("TextureSampler1_color_multiplierb").eval() * 255
+            return QColor(r, g, b)
+        
     def setLightColor(self):
        
         isUseTexture = self.node_object.parm("RSColorLayer1_layer1_enable").eval()
@@ -654,15 +754,27 @@ class LightPanelWidget(QWidget):
     def intensity_dialog(self):
         labels = ("Min", "Value", "Max")
         buttons = ("OK", "Cancel")
-        contents = ("270","280", "0")
+        contents = (str(self.slider_intensity.current_min), str(self.intensity_value / 100), str(self.slider_intensity.current_max))
         dialog = hou.ui.readMultiInput("Set intensity value and range.", input_labels=labels, buttons=buttons, close_choice=1, initial_contents=contents)
-
+        if dialog[0] == 0:
+            self.slider_intensity.setSliderRange(self.slider_intensity, float(dialog[1][0]), float(dialog[1][2]))
+            self.intensity_value = float(dialog[1][1]) *100
+            self.slider_intensity.slider.setValue( self.intensity_value )
+            
+            self.slider_intensity.setTickLabels( int(float(dialog[1][0])), int(float(dialog[1][2])), type="intensity" )
+            
     def exposure_dialog(self):
         labels = ("Min", "Value", "Max")
         buttons = ("OK", "Cancel")
-        contents = ("270","280", "0")
+        contents = (str(self.slider_exposure.current_min), str(self.exposure_value / 100) , str(self.slider_exposure.current_max))
         dialog = hou.ui.readMultiInput("Set exposure value and range.", input_labels=labels, buttons=buttons, close_choice=1, initial_contents=contents)
-    
+        if dialog[0] == 0:
+            self.slider_exposure.setSliderRange(self.slider_exposure, float(dialog[1][0]), float(dialog[1][2]))
+            self.exposure_value = float(dialog[1][1])*100
+            self.slider_exposure.slider.setValue( self.exposure_value )
+            
+            self.slider_exposure.setTickLabels( int(float(dialog[1][0])), int(float(dialog[1][2])), type="exposure" )
+            
     def resize_dialog(self):
         self.lightsize_parms = (self.node_object.parm("areasize1"), self.node_object.parm("areasize2"), self.node_object.parm("areasize3"))
         
@@ -680,7 +792,7 @@ class LightPanelWidget(QWidget):
         self.transform_input.setValues((self.lightsize_parms[0].eval(), self.lightsize_parms[1].eval(), self.lightsize_parms[2].eval()))
         self.transform_input.valueChanged.connect(lambda: self.updateParameter(self.lightsize_parms, self.transform_input.values()))
 
-        #self.updateParameter(intensity_parm, slider_intensity.slider.value()/100)
+        #self.updateParameter(intensity_parm, self.slider_intensity.slider.value()/100)
         
         layout.addWidget(self.transform_input)
         close_button = QPushButton("Close")
@@ -701,6 +813,14 @@ class LightPanelWidget(QWidget):
                 return True
 
         return super().eventFilter(obj, event)
+        
+    def removeSelf(self):
+        parent = self.parent().parent().parent().parent()
+        parent.layout.removeWidget(self)
+        self.deleteLater()
+        node_id = self.node_object.sessionId()
+        if node_id in parent.light_ids:
+            parent.light_ids.remove(node_id)
 
 class DropOffArea(QWidget):
     def __init__(self):
@@ -708,34 +828,36 @@ class DropOffArea(QWidget):
         
         # --------
         
-        self.light_names = []
+        self.light_ids = []
         self.light_panels = []
-        self.solo_memory = []
+        self.solo_memory = {}
+        self.accepted_nodes = ["rslight", "rslightdome", "rslighties", "rslightportal", "rslightsun"]
+        self.is_placeholder_removed = False
         
         # --------
         
 
-        wrapper = QWidget()
+        self.wrapper = QWidget()
         
-        wrapper.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        
-        
-        wrapper_layout = QHBoxLayout(self)
-        wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        self.wrapper.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        scroll.setWidget(wrapper)
+        self.wrapper_layout = QHBoxLayout(self)
+        self.wrapper_layout.setContentsMargins(0, 0, 0, 0)
         
-        wrapper_layout.addWidget(scroll)
+        
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.scroll.setWidget(self.wrapper)
+        
+        self.wrapper_layout.addWidget(self.scroll)
         
 
         self.layout = QHBoxLayout()
         self.layout.setSpacing(0)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        wrapper.setLayout(self.layout)
+        self.wrapper.setLayout(self.layout)
         
         self.spacer = QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
         
@@ -751,6 +873,7 @@ class DropOffArea(QWidget):
 
         self.setAcceptDrops(True)
     
+        
     def validDropInfo(self, drop_info):
         
         if drop_info.startswith("/obj/"):
@@ -765,34 +888,58 @@ class DropOffArea(QWidget):
             print("Only OBJ context nodes are allowed.")
             return False
         
-    def isListed(self, node_object):
-        node_name = node_object.name()
-        if node_name in self.light_names:
+    def isListed(self, node_id):
+        # node_name = node_object.name()
+        if node_id in self.light_ids:
             return True
         else:
             return False
             
+    def unlist(self, node_id):
+        if node_id in self.light_ids:
+            self.light_ids.remove(node_id)
+            
 
     def toggleSolo(self, object, node_object):
         isChecked = object.solo_button.isChecked()
-            
         
+        if isChecked:
+            if self.solo_memory:
+                is_self_memory = True
+            else:
+                is_self_memory = False
+            
+            for node in hou.node("/obj").allSubChildren():
+                if self.removeSuffix(node.type().name()) in self.accepted_nodes:
+                   
+                    if node.parm("light_enabled"):
+                        parm_value = node.parm("light_enabled").eval()
+                        if not is_self_memory:
+                            self.solo_memory[node.sessionId()] = parm_value
+                        node.parm("light_enabled").set(0)
+            node_object.parm("light_enabled").set(1)
+        else:
+            for key, value in self.solo_memory.items():
+                hou.nodeBySessionId(key).parm("light_enabled").set(value)
+            self.solo_memory.clear()
+        
+                
         for light_panel in self.light_panels:
-            # uncheck other solo buttons
+
             if light_panel.name != node_object.name():
                 light_panel.solo_button.setChecked(False)
-            # disable buttons
+   
             if isChecked:
                 light_panel.enable_button.setEnabled(False)
-                # self.solo_memory.append(light_panel)
-                # TODO:
-                # remember current isChecked for every light
-                # then turn them all off except for the solo light
+                
             else:
                 light_panel.enable_button.setEnabled(True)
+
+               
             
-            
-                
+    def removeSuffix(self, string):
+        split_string = string.split(':')
+        return split_string[0]
 
         
     def dragEnterEvent(self, event: QDragEnterEvent):
@@ -806,23 +953,31 @@ class DropOffArea(QWidget):
         if data.hasText():
             drop_info = data.text()
             
-            if self.validDropInfo(drop_info):
-                node = hou.node(drop_info)
-                node_name = node.name()
-                node_type = node.type().name()
-                
-                
-                if not self.isListed(node): 
-                    # Remove placeholder text
-                    if label_index != -1:
-                        self.layout.removeWidget(self.label)
-                        self.label.deleteLater()
-                        self.label = None
-                        self.layout.addItem(self.spacer)
-                    # Add Panel
-                    self.light_panels.append(LightPanelWidget(node, self))
-                    self.layout.insertWidget(self.layout.count() - 1, self.light_panels[-1])
-                    self.light_names.append(node_name)
+            node_paths = drop_info.split('\t')
+            
+            
+            for node_path in node_paths:
+                if self.validDropInfo(node_path):
+                    node = hou.node(node_path)
+                    node_name = node.name()
+                    node_type = node.type().name()
+                    node_id = node.sessionId()
+                    
+                    
+                    
+                    if not self.isListed(node_id): 
+                        # Remove placeholder text
+                        if not self.is_placeholder_removed:
+                            if label_index != -1:
+                                self.layout.removeWidget(self.label)
+                                self.label.deleteLater()
+                                self.label = None
+                                self.layout.addItem(self.spacer)
+                            self.is_placeholder_removed = True
+                        # Add Panel
+                        self.light_panels.append(LightPanelWidget(node, parent=self))
+                        self.layout.insertWidget(self.layout.count() - 1, self.light_panels[-1])
+                        self.light_ids.append(node_id)
 
 
             
