@@ -12,6 +12,8 @@ from PySide2.QtWidgets import QApplication, QToolTip, QFrame, QScrollArea, QAbst
 from PySide2.QtCore import Qt, QMimeData
 from PySide2.QtGui import QDragEnterEvent, QDropEvent, QColor
 
+__version__ = "0.1.0"
+__author__ = "Alex Majewski"
 
 class SmoothQSlider(QSlider):
     def __init__(self):
@@ -33,20 +35,20 @@ class SmoothQSlider(QSlider):
         QSlider::handle:vertical {
             margin: 0px -10px;
         }
-        QSlider::add-page {
+        QSlider::add-page:vertical {
             background: #5A8ABC;
             border-width: 1px;
             border-left-color: #000000;
             border-right-color: #004A98;
             
         }
-        QSlider#exposure::add-page {
+        QSlider#exposure::add-page:vertical {
             /*margin-bottom:100%;*/
         }
         QSlider#intensity::groove:vertical {
             margin-left:10px;
         }
-        QSlider#intensity::add-page {
+        QSlider#intensity::add-page:vertical {
             margin-left:10px;
         }
         QSlider::handle:vertical {
@@ -62,33 +64,71 @@ class SmoothQSlider(QSlider):
             margin: 0px -10px;
             border-radius: 10px;
         }
-        QSlider {
+        QSlider:vertical {
             width: 19px;
             margin:0px;
             padding:0px;
             background-color: transparent;
             }
-            """)
-    
+            
+        QSlider:horizontal {
+            padding-left: 10px;
+            padding-right: 10px;
+            background: transparent;
+            height: 20px;
+        } 
+        QSlider::groove:horizontal {  
+      
+        height: 3px;
+        border:none;
+        background-color: #000;
+        }
+        QSlider::handle:horizontal {
+            margin: -4px 0px;
+        }
+        QSlider::sub-page:horizontal {
+            background: #5A8ABC;
+            border-width: 1px;
+            border-top-color: #000000;
+            border-bottom-color: #004A98;
+            
+        }
+   
+        QSlider::handle:horizontal {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #949494,
+                stop:1 #767676 
+            );
+            border-top: 1px solid #B3B3B3;
+            border-left: 1px solid #B3B3B3;
+            border-bottom: 1px solid #4D4D4D;
+            border-right: 1px solid #4D4D4D;
+            height: 5px;
+            width: 5px;
+            border-radius: 10px;
+        }
+            
+        """)
+            
+            
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
         self.mouseMoveEvent(event)
 
     def mouseMoveEvent(self, event):
         if event.buttons() & Qt.LeftButton:
-            new_value = self.maximum() - ((self.maximum() - self.minimum()) * event.y()) / self.height()
+            if self.orientation() == Qt.Vertical:
+                new_value = self.maximum() - ((self.maximum() - self.minimum()) * event.y()) / self.height()
+            else:
+                new_value = self.maximum() - ((self.maximum() - self.minimum()) * (self.width() - event.x())) / self.width()
             self.setValue(new_value)
             new_value = max(self.minimum(), min(new_value, self.maximum())) * 0.01
-            # new_value *= 0.01
             new_value = "{:.2f}".format(new_value)
             tooltip_text = f'Value: {new_value}'
             QToolTip.showText(event.globalPos(), tooltip_text, self)
-            # tooltip_text = f'Value: {str(self.value)}'
-            # QToolTip.showText(self.mapToGlobal(self.rect().center()), tooltip_text, self)
-    
-    # def valueChanged(self, value):
-    #     tooltip_text = f'Value: {int(value)}'
-    #     QToolTip.showText(self.mapToGlobal(self.rect().center()), tooltip_text, self)
+            
+            
+     
 
 class LabeledSlider(QWidget):
     def __init__(self, type="intensity"):
@@ -98,8 +138,6 @@ class LabeledSlider(QWidget):
         self.current_max = 100
         
         self.type = type
-        # self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
-        # self.setFixedWidth(90)
         self.tick_labels = []
         
         layout = QGridLayout()
@@ -129,6 +167,7 @@ class LabeledSlider(QWidget):
             dashticks_layout.setContentsMargins(0, 0, 11, 0)
             
             self.slider = SmoothQSlider()
+            self.slider.setOrientation(Qt.Vertical)
         
             inten_max = 100
             inten_min = -9
@@ -173,7 +212,6 @@ class LabeledSlider(QWidget):
                 tick_dash.setFrameShape(QFrame.HLine)
                 tick_dash.setLineWidth(1)
                
-                # tick_dash.setStyleSheet("background-color: white;")
                 dashticks_layout.addWidget(tick_dash, alignment=Qt.AlignRight)
             
             dashticks = QWidget()
@@ -235,7 +273,6 @@ class LabeledSlider(QWidget):
                 tick_dash.setFrameShape(QFrame.HLine)
                 tick_dash.setLineWidth(1)
                
-                # tick_dash.setStyleSheet("background-color: white;")
                 dashticks_layout.addWidget(tick_dash, alignment=Qt.AlignLeft)
                 
             dashticks = QWidget()
@@ -264,7 +301,9 @@ class LabeledSlider(QWidget):
                 step_value = range_max - step_size * i
             if type == "intensity":
                 if step_value >= 1000 or step_value <= -1000:
-                    step_value = f"{step_value // 1000}K"
+                    step_value /= 1000
+                    step_value = f"{step_value:.1f}" if step_value != int(step_value) else str(int(step_value))
+                    step_value = f"{step_value}K"
                 self.tick_labels[i].setText(str(step_value))
             elif type == "exposure":
                 if step_value >= 0:
@@ -273,21 +312,6 @@ class LabeledSlider(QWidget):
                 else:
                     step_value = f"Æ{step_value}"
                     self.tick_labels[i].setText(str(step_value))
-        
-        # if full_range >= num_steps:
-        #     for i in range(num_steps):
-        #         step_value = int(range_max - step_size * i)
-        #         if type == "intensity":
-        #             if step_value >= 1000 or step_value <= -1000:
-        #                 step_value = f"{step_value // 1000}K"
-        #             self.tick_labels[i].setText(str(step_value))
-        #         elif type == "exposure":
-        #             if step_value >= 0:
-        #                 step_value = f"Æ+{step_value}"
-        #                 self.tick_labels[i].setText(str(step_value))
-        #             else:
-        #                 step_value = f"Æ{step_value}"
-        #                 self.tick_labels[i].setText(str(step_value))
 
     
     def roundToNearest(self, value, roundto):
@@ -300,48 +324,39 @@ class LabeledSlider(QWidget):
         object.slider.setRange(new_min, new_max)
         self.current_min = min
         self.current_max = max
-        # object.slider.setTickInterval(30)
-        # object.slider.setSingleStep( (max - min) / 100 )
-        # object.slider.setSingleStep(  6)
         
     def autoSliderRange(self, object, value, type="intensity"):
         # estimate an initial range based off value
-        # ranges_dict = {
-        #     1000: 500,
-        #     500: 250,
-        #     100: 100,
-        #     50: 50,
-            
-        # }
-        
-        """
-            if 1000 : 500 - 1500
-            if 800 : 500 - 1000
-            if 100 50-150
-            if 50 0 - 100
-            if 5 0 - 50
-        """
         
         if type == "intensity":
-            # new_min = self.roundToNearest(
-            if -1000 < value <= -100:
-                new_min = self.roundToNearest(value-500, 500)
-                new_max = self.roundToNearest(value+500, 500)
+            min = 0
+            if  0 <= value < 35:
+                self.setSliderRange(object, min, 50)
+                self.setTickLabels(min, 50, type)
+            elif 35 <= value < 75:
+                self.setSliderRange(object, min, 100)
+                self.setTickLabels(min, 100, type)
+            elif 35 <= value < 75:
+                self.setSliderRange(object, min, 100)
+                self.setTickLabels(min, 100, type)
+            elif 75 <= value < 150:
+                self.setSliderRange(object, min, 300)
+                self.setTickLabels(min, 300, type)
+            elif 150 <= value < 500:
+                new_max = self.roundToNearest(value+500, 250)
+                self.setSliderRange(object, min, new_max)
+                self.setSliderRange(object, min, new_max)
+                self.setTickLabels(min, new_max, type)
+            elif value >= 500:
+                new_max = self.roundToNearest(value+1000, 500)
+                self.setSliderRange(object, min, new_max)
+                self.setSliderRange(object, min, new_max)
+                self.setTickLabels(min, new_max, type)
+            elif value < 0:
+                scale = int(value/2) if int(value/2) < -1 else 1
+                new_min = self.roundToNearest(value+(value/2), scale)
+                new_max = self.roundToNearest(value-(value/2), scale)
                 self.setSliderRange(object, new_min, new_max)
-                self.setTickLabels(new_min, new_max, type)
-            elif -100 < value <= -25:
-                new_min = self.roundToNearest(value-50, 50)
-                new_max = self.roundToNearest(value+50, 50)
-                self.setSliderRange(object, new_min, new_max)
-                self.setTickLabels(new_min, new_max, type)
-            elif -25 < value <= 0:
-                new_min = self.roundToNearest(value-10, 10)
-                new_max = self.roundToNearest(value+10, 10)
-                self.setSliderRange(object, new_min, new_max)
-                self.setTickLabels(new_min, new_max, type)
-            elif 0 < value < 10:
-                new_min = 0
-                new_max = 50
                 self.setSliderRange(object, new_min, new_max)
                 self.setTickLabels(new_min, new_max, type)
     
@@ -349,17 +364,10 @@ class LabeledSlider(QWidget):
                 self.setSliderRange(object, 0, 100)
                 self.setTickLabels(0, 100, type)
         elif type == "exposure":
-            if -3 < value < 3:
-                self.setSliderRange(object, -5, 5)
-                self.setTickLabels(-5, 5, type)
-            else:
-                self.setSliderRange(object, 0, 100)
-                self.setTickLabels(0, 100, type)
-        
-    def setRangeInWidgets():
-        # sets range of the slider and adjusts labels
-        pass
-            
+                new_min = self.roundToNearest(value-3, 3)
+                new_max = self.roundToNearest(value+3, 3)
+                self.setSliderRange(object, new_min, new_max)
+                self.setTickLabels(new_min, new_max, type)
         
 
 
@@ -556,6 +564,7 @@ class LightPanelWidget(QWidget):
         intensity_range = QPushButton()
         intensity_icon = hou.qt.Icon("SCENEGRAPH_attr_intensity", 20, 20)
         intensity_range.setIcon(intensity_icon)
+        intensity_range.setToolTip("Set intensity range")
         intensity_range.setStyleSheet(ranges_style)
         if intensity_range:
             intensity_range.clicked.connect(self.intensity_dialog)
@@ -566,6 +575,7 @@ class LightPanelWidget(QWidget):
         exposure_range = QPushButton()
         exposure_icon = hou.qt.Icon("SCENEGRAPH_attr_exposure", 20, 20)
         exposure_range.setIcon(exposure_icon)
+        exposure_range.setToolTip("Set exposure range")
         exposure_range.setStyleSheet(ranges_style)
         if exposure_parm:
             exposure_range.clicked.connect(self.exposure_dialog)
@@ -635,49 +645,12 @@ class LightPanelWidget(QWidget):
         
         spread_parm = self.node_object.parm("RSL_spread")
         if spread_parm and not spread_parm.isHidden():
-            slider_spread = QSlider()
-            slider_spread.setValue(int(spread_parm.eval()*100))
+            slider_spread = SmoothQSlider()
             slider_spread.setOrientation(Qt.Horizontal)
+            slider_spread.setValue(int(spread_parm.eval()*100))
             slider_spread.setContentsMargins(5, 0, 5, 0)
             slider_spread.setToolTip("Spread")
-            slider_spread.setStyleSheet("""
-                QSlider {
-                    padding-left: 10px;
-                    padding-right: 10px;
-                    background: transparent;
-                    height: 20px;
-                } 
-                QSlider::groove:horizontal {  
-              
-                height: 3px;
-                border:none;
-                background-color: #000;
-                }
-                QSlider::handle:horizontal {
-                    margin: -4px 0px;
-                }
-                QSlider::sub-page {
-                    background: #5A8ABC;
-                    border-width: 1px;
-                    border-top-color: #000000;
-                    border-bottom-color: #004A98;
-                    
-                }
-           
-                QSlider::handle:horizontal {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                        stop:0 #949494,
-                        stop:1 #767676 
-                    );
-                    border-top: 1px solid #B3B3B3;
-                    border-left: 1px solid #B3B3B3;
-                    border-bottom: 1px solid #4D4D4D;
-                    border-right: 1px solid #4D4D4D;
-                    height: 5px;
-                    width: 5px;
-                    border-radius: 10px;
-                }
-            """)
+            
             main_layout.addWidget(slider_spread)
             
             spread_parm = self.node_object.parm("RSL_spread")
@@ -735,30 +708,42 @@ class LightPanelWidget(QWidget):
         self.node_object.parm("light_enabled").set(int(value))
         
     def getLightColor(self):
-        isUseTexture = self.node_object.parm("RSColorLayer1_layer1_enable").eval()
-        if not isUseTexture:
+        isUseTexture = self.node_object.parm("RSColorLayer1_layer1_enable")
+        if isUseTexture:
+            if not isUseTexture.eval():
+                r = self.node_object.parm("light_colorr").eval() * 255
+                g = self.node_object.parm("light_colorg").eval() * 255
+                b = self.node_object.parm("light_colorb").eval() * 255
+                return QColor(r, g, b)
+            else: 
+                r = self.node_object.parm("TextureSampler1_color_multiplierr").eval() * 255
+                g = self.node_object.parm("TextureSampler1_color_multiplierg").eval() * 255
+                b = self.node_object.parm("TextureSampler1_color_multiplierb").eval() * 255
+                return QColor(r, g, b)
+        else:
             r = self.node_object.parm("light_colorr").eval() * 255
             g = self.node_object.parm("light_colorg").eval() * 255
             b = self.node_object.parm("light_colorb").eval() * 255
             return QColor(r, g, b)
-        else: 
-            r = self.node_object.parm("TextureSampler1_color_multiplierr").eval() * 255
-            g = self.node_object.parm("TextureSampler1_color_multiplierg").eval() * 255
-            b = self.node_object.parm("TextureSampler1_color_multiplierb").eval() * 255
-            return QColor(r, g, b)
         
     def setLightColor(self):
        
-        isUseTexture = self.node_object.parm("RSColorLayer1_layer1_enable").eval()
-        if not isUseTexture:
+        isUseTexture = self.node_object.parm("RSColorLayer1_layer1_enable")
+        
+        if isUseTexture:
+            if not isUseTexture.eval():
+                self.node_object.parm("light_colorr").set(self.color_picker.color().red() / 255)
+                self.node_object.parm("light_colorg").set(self.color_picker.color().green() / 255)
+                self.node_object.parm("light_colorb").set(self.color_picker.color().blue() / 255)
+            else:
+                self.node_object.parm("TextureSampler1_color_multiplierr").set(self.color_picker.color().red() / 255)
+                self.node_object.parm("TextureSampler1_color_multiplierg").set(self.color_picker.color().green() / 255)
+                self.node_object.parm("TextureSampler1_color_multiplierb").set(self.color_picker.color().blue() / 255)
+        else:
             self.node_object.parm("light_colorr").set(self.color_picker.color().red() / 255)
             self.node_object.parm("light_colorg").set(self.color_picker.color().green() / 255)
             self.node_object.parm("light_colorb").set(self.color_picker.color().blue() / 255)
-        else:
-            self.node_object.parm("TextureSampler1_color_multiplierr").set(self.color_picker.color().red() / 255)
-            self.node_object.parm("TextureSampler1_color_multiplierg").set(self.color_picker.color().green() / 255)
-            self.node_object.parm("TextureSampler1_color_multiplierb").set(self.color_picker.color().blue() / 255)
-        
+            
     def intensity_dialog(self):
         labels = ("Min", "Value", "Max")
         buttons = ("OK", "Cancel")
