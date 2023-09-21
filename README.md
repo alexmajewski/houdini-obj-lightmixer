@@ -4,6 +4,8 @@ Obj Light Mixer is a custom panel built to mimic the Solaris Light Mixer functio
 
 Only Redshift is supported.
 
+![obj_lightmixer_example](https://github.com/alexmajewski/houdini-obj-lightmixer/assets/77795178/1d50e085-80be-4ca9-a074-0b4127b328f9)
+
 ## How to use
 
 Drag and drop Redshift lights from the network onto the Light Mixer panel to control them. If any buttons are disabled or missing, that means they aren't available for the chosen light.
