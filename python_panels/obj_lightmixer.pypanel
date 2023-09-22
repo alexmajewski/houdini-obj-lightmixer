@@ -12,7 +12,7 @@ from PySide2.QtWidgets import QApplication, QToolTip, QFrame, QScrollArea, QAbst
 from PySide2.QtCore import Qt, QMimeData
 from PySide2.QtGui import QDragEnterEvent, QDropEvent, QColor
 
-__version__ = "0.1.0"
+__version__ = "0.1.5"
 __author__ = "Alex Majewski"
 
 class SmoothQSlider(QSlider):
@@ -377,12 +377,12 @@ class LightPanelWidget(QWidget):
         
         self.name = node_object.name()
         self.type = self.removeSuffix(node_object.type().name())
-
-        
-        
         self.node_object = node_object
+        self.monitored_parms = {}
         
         self.initUI()
+        
+        self.addNodeCallbacks()
     
     def initUI(self):
         wrapper_layout = QVBoxLayout(self)
@@ -416,25 +416,25 @@ class LightPanelWidget(QWidget):
         delete_button.setFixedSize(11,11)
         delete_icon = hou.qt.Icon("BUTTONS_delete", 10, 10)
         delete_button.setIcon(delete_icon)
-        delete_button.clicked.connect(self.removeSelf)
+        delete_button.clicked.connect(self.removeFromMixer)
         
         # Label Light Name
-        light_label = QLabel(self.name)
-        light_label.setAlignment(Qt.AlignCenter)
-        light_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        light_label.setFixedHeight(25)
-        light_label.setStyleSheet( "background-color: #474747;")
-        # main_layout.addWidget(light_label)
+        self.light_label = QLabel(self.name)
+        self.light_label.setAlignment(Qt.AlignCenter)
+        self.light_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.light_label.setFixedHeight(25)
+        self.light_label.setStyleSheet( "background-color: #474747;")
+        # main_layout.addWidget(self.light_label)
         
         header = QWidget()
         header_layout = QGridLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setAlignment(Qt.AlignTop)
         header.setLayout(header_layout)
-        header_layout.addWidget(light_label, 0, 0, 2, 2)
+        header_layout.addWidget(self.light_label, 0, 0, 2, 2)
         header_layout.addWidget(delete_button, 0, 1, 1, 1)
         main_layout.addWidget(header)
-        # light_label.setWidget(delete_button)
+        # self.light_label.setWidget(delete_button)
         
         # Toggle Buttons
         toggle_button_style = """
@@ -479,6 +479,7 @@ class LightPanelWidget(QWidget):
         self.enable_button = QPushButton()
         self.enable_button.setCheckable(True)
         self.enable_button.setChecked(self.node_object.parm("light_enabled").eval())
+        self.monitorParmChanges("light_enabled", self.enable_button)
         self.enable_icon = hou.qt.Icon(self.setLightIcon(), 20, 20)
         self.enable_button.setIcon(self.enable_icon)
         self.enable_button.setObjectName("enable_button")
@@ -600,6 +601,7 @@ class LightPanelWidget(QWidget):
         
         if intensity_parm:
             self.intensity_value = intensity_parm.eval()
+            self.monitorParmChanges(intensity_parm.name(), self.slider_intensity.slider)
             
             self.slider_intensity.autoSliderRange(self.slider_intensity, self.intensity_value, type="intensity")
             
@@ -624,6 +626,7 @@ class LightPanelWidget(QWidget):
         
         if exposure_parm:
             self.exposure_value = exposure_parm.eval()
+            self.monitorParmChanges(exposure_parm.name(), self.slider_exposure.slider)
             
             self.slider_exposure.autoSliderRange(self.slider_exposure, self.exposure_value, type="exposure")
            
@@ -645,19 +648,24 @@ class LightPanelWidget(QWidget):
         
         spread_parm = self.node_object.parm("RSL_spread")
         if spread_parm and not spread_parm.isHidden():
-            slider_spread = SmoothQSlider()
-            slider_spread.setOrientation(Qt.Horizontal)
-            slider_spread.setValue(int(spread_parm.eval()*100))
-            slider_spread.setContentsMargins(5, 0, 5, 0)
-            slider_spread.setToolTip("Spread")
+            self.slider_spread = SmoothQSlider()
+            self.slider_spread.setOrientation(Qt.Horizontal)
+            self.slider_spread.setValue(int(spread_parm.eval()*100))
+            self.slider_spread.setContentsMargins(5, 0, 5, 0)
+            self.slider_spread.setToolTip("Spread")
+            self.monitorParmChanges(spread_parm.name(), self.slider_spread)
             
-            main_layout.addWidget(slider_spread)
+            main_layout.addWidget(self.slider_spread)
             
             spread_parm = self.node_object.parm("RSL_spread")
-            slider_spread.valueChanged.connect(lambda: self.updateParameter(spread_parm, slider_spread.value()/100)) 
+            self.slider_spread.valueChanged.connect(lambda: self.updateParameter(spread_parm, self.slider_spread.value()/100)) 
              
         if self.node_object.parm("light_colorr"):
             self.color_picker = hou.qt.ColorSwatchButton()
+            self.monitorParmChanges("light_colorr", self.color_picker)
+            
+            if self.node_object.parm("TextureSampler1_color_multiplierr"):
+                self.monitorParmChanges("TextureSampler1_color_multiplierr", self.color_picker)
             
             self.color_picker.setColor(self.getLightColor())
                 
@@ -807,6 +815,49 @@ class LightPanelWidget(QWidget):
 
         return super().eventFilter(obj, event)
         
+    def addNodeCallbacks(self):
+        self.node_object.addEventCallback((hou.nodeEventType.ParmTupleChanged,), self._onNodeParmChange)
+        self.node_object.addEventCallback((hou.nodeEventType.NameChanged,), self._onNodeNameChange)
+        self.node_object.addEventCallback((hou.nodeEventType.BeingDeleted,), self._onNodeDeletion)
+        
+    def removeCallbacks(self):
+        self.node_object.removeEventCallback((hou.nodeEventType.ParmTupleChanged,), self._onNodeParmChange)
+        self.node_object.removeEventCallback((hou.nodeEventType.NameChanged,), self._onNodeNameChange)
+        self.node_object.removeEventCallback((hou.nodeEventType.BeingDeleted,), self._onNodeDeletion)
+    
+    def monitorParmChanges(self, parm, widget):
+        self.monitored_parms[parm] = widget
+    
+    def _onNodeParmChange(self, **kwargs):
+        if kwargs["event_type"] == hou.nodeEventType.ParmTupleChanged and kwargs["parm_tuple"] is not None:
+            for parm in kwargs["parm_tuple"]:
+                parm_name = parm.name()
+                if parm_name in self.monitored_parms:
+                    widget = self.monitored_parms[parm_name]
+                    
+                    if isinstance(widget, hou.qt.ColorSwatchButton):
+                        self.color_picker.setColor(self.getLightColor())
+                        
+                    elif isinstance(widget, SmoothQSlider):
+                        widget.setValue(self.node_object.parm(parm_name).eval() * 100)
+                        
+                    elif isinstance(widget, QPushButton):
+                        widget.setChecked(self.node_object.parm(parm_name).eval())
+
+                    
+        
+    def _onNodeNameChange(self, node, **kwargs):
+        self.name = node.name()
+        if kwargs["event_type"] == hou.nodeEventType.NameChanged:
+            self.light_label.setText(self.name)
+        
+    def _onNodeDeletion(self, **kwargs):
+        self.removeSelf()
+    
+    def removeFromMixer(self):
+        self.removeCallbacks()
+        self.removeSelf()
+     
     def removeSelf(self):
         parent = self.parent().parent().parent().parent()
         parent.layout.removeWidget(self)
