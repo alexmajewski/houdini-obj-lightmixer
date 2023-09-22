@@ -662,7 +662,7 @@ class LightPanelWidget(QWidget):
              
         if self.node_object.parm("light_colorr"):
             self.color_picker = hou.qt.ColorSwatchButton()
-            self.monitorParmChanges("light_colorr", self.color_picker)
+            self.monitorParmChanges("light_colorb", self.color_picker)
             
             if self.node_object.parm("TextureSampler1_color_multiplierr"):
                 self.monitorParmChanges("TextureSampler1_color_multiplierr", self.color_picker)
@@ -740,17 +740,41 @@ class LightPanelWidget(QWidget):
         
         if isUseTexture:
             if not isUseTexture.eval():
-                self.node_object.parm("light_colorr").set(self.color_picker.color().red() / 255)
-                self.node_object.parm("light_colorg").set(self.color_picker.color().green() / 255)
-                self.node_object.parm("light_colorb").set(self.color_picker.color().blue() / 255)
+             # = self.node_object.parm("light_colorr").set(self.color_picker.color().red() / 255)
+             #    g = self.node_object.parm("light_colorg").set(self.color_picker.color().green() / 255)
+             #    b = self.node_object.parm("light_colorb").set(self.color_picker.color().blue() / 255)
+                r = self.color_picker.color().red() / 255
+                g = self.color_picker.color().green() / 255
+                b = self.color_picker.color().blue() / 255
+
+                final_color = {
+                    "light_colorr": r,
+                    "light_colorg": g,
+                    "light_colorb": b
+                }
+                self.node_object.setParms(final_color)
             else:
-                self.node_object.parm("TextureSampler1_color_multiplierr").set(self.color_picker.color().red() / 255)
-                self.node_object.parm("TextureSampler1_color_multiplierg").set(self.color_picker.color().green() / 255)
-                self.node_object.parm("TextureSampler1_color_multiplierb").set(self.color_picker.color().blue() / 255)
+                r = self.color_picker.color().red() / 255
+                g = self.color_picker.color().green() / 255
+                b = self.color_picker.color().blue() / 255
+                
+                final_color = {
+                    "TextureSampler1_color_multiplierr": r,
+                    "TextureSampler1_color_multiplierg": g,
+                    "TextureSampler1_color_multiplierb": b
+                }
+                self.node_object.setParms(final_color)
         else:
-            self.node_object.parm("light_colorr").set(self.color_picker.color().red() / 255)
-            self.node_object.parm("light_colorg").set(self.color_picker.color().green() / 255)
-            self.node_object.parm("light_colorb").set(self.color_picker.color().blue() / 255)
+            r = self.color_picker.color().red() / 255
+            g = self.color_picker.color().green() / 255
+            b = self.color_picker.color().blue() / 255
+
+            final_color = {
+                "light_colorr": r,
+                "light_colorg": g,
+                "light_colorb": b
+            }
+            self.node_object.setParms(final_color)
             
     def intensity_dialog(self):
         labels = ("Min", "Value", "Max")
