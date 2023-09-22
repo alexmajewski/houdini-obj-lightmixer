@@ -10,8 +10,7 @@ Only Redshift is supported.
 
 Drag and drop Redshift lights from the network onto the Light Mixer panel to control them. If any buttons are disabled or missing, that means they aren't available for the chosen light.
 
-### Beta version 0.1.0 info:
-- one-way relation, deleting a node will not delete it in the panel, likewise renaming and parameter changes
+### Beta v0.1.5 info:
 - not implemented: re-ordering of lights in the panel
 - to re-order or rename, the light needs to be removed and re-added
 - not implemented: light selection in the panel
