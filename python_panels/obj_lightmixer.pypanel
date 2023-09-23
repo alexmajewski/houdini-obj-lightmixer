@@ -8,9 +8,9 @@
   <interface name="obj_lightmixer" label="Obj Context Light Mixer" icon="LOP_lightmixer" showNetworkNavigationBar="false" help_url="">
     <script><![CDATA[from PySide2 import QtWidgets, QtGui
 from PySide2.QtCore import Qt
-from PySide2.QtWidgets import QApplication, QToolTip, QFrame, QScrollArea, QAbstractButton, QGridLayout, QSizePolicy, QSpacerItem, QCheckBox, QPushButton, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QHBoxLayout
-from PySide2.QtCore import Qt, QMimeData
-from PySide2.QtGui import QDragEnterEvent, QDropEvent, QColor
+from PySide2.QtWidgets import QApplication, QToolTip, QFrame, QListWidget, QListWidgetItem, QScrollArea, QRubberBand, QAbstractButton, QGridLayout, QSizePolicy, QSpacerItem, QCheckBox, QPushButton, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QHBoxLayout
+from PySide2.QtCore import Qt, QMimeData, QSize
+from PySide2.QtGui import QDragEnterEvent, QDropEvent, QColor, QPainter, QPen
 
 __version__ = "0.1.5"
 __author__ = "Alex Majewski"
@@ -18,11 +18,12 @@ __author__ = "Alex Majewski"
 class SmoothQSlider(QSlider):
     def __init__(self):
         super().__init__()
-        
+        # self.setMinimumHeight(200)
         
         # self.setOrientation(Qt.Vertical)
 
-        self.setStyleSheet( """
+        self.styles = """
+        
         QSlider::groove:vertical {  
             padding-left:-1px;  
             padding-right:-1px;
@@ -66,6 +67,7 @@ class SmoothQSlider(QSlider):
         }
         QSlider:vertical {
             width: 19px;
+            width: 38px;
             margin:0px;
             padding:0px;
             background-color: transparent;
@@ -107,8 +109,9 @@ class SmoothQSlider(QSlider):
             width: 5px;
             border-radius: 10px;
         }
-            
-        """)
+        
+        """
+        self.setStyleSheet(self.styles)
             
             
     def mousePressEvent(self, event):
@@ -128,7 +131,19 @@ class SmoothQSlider(QSlider):
             QToolTip.showText(event.globalPos(), tooltip_text, self)
             
             
-     
+class OverlayWidget(QWidget):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setStyleSheet("border: 2px solid #B98620; border-radius: 3px;")
+        self.setGeometry(parent.geometry())
+
+    def event(self, event):
+        if event.type() == event.MouseButtonPress:
+            # Ignore mouse button press events
+            return False
+        return super().event(event)
 
 class LabeledSlider(QWidget):
     def __init__(self, type="intensity"):
@@ -168,6 +183,20 @@ class LabeledSlider(QWidget):
             
             self.slider = SmoothQSlider()
             self.slider.setOrientation(Qt.Vertical)
+            unique_style = ("""
+                QSlider:vertical {
+                    padding-right:2px;
+                    margin:0;
+                    margin-left: 4px;
+                }
+                QSlider::groove:vertical {
+                    margin-left:16px;
+                }
+                QSlider::add-page:vertical {
+                    margin-left: 16px;
+                }
+                """)
+            self.slider.setStyleSheet(self.slider.styles + unique_style)
         
             inten_max = 100
             inten_min = -9
@@ -286,6 +315,20 @@ class LabeledSlider(QWidget):
             self.slider = SmoothQSlider()
             self.slider.setObjectName("exposure")
             layout.addWidget(self.slider, 0, 2, 1, 1)
+            unique_style = ("""
+                QSlider:vertical {
+                    padding-left:2px;
+                    margin:0;
+                    margin-right: 5px;
+                }
+                QSlider::groove:vertical {
+                    margin-right:16px;
+                }
+                QSlider::add-page:vertical {
+                    margin-right: 16px;
+                }
+                """)
+            self.slider.setStyleSheet(self.slider.styles + unique_style)
             
     def setTickLabels(self, range_min, range_max, type="intensity"):
         num_steps = len(self.tick_labels)
@@ -377,31 +420,35 @@ class LightPanelWidget(QWidget):
         
         self.name = node_object.name()
         self.type = self.removeSuffix(node_object.type().name())
+       
         self.node_object = node_object
         self.monitored_parms = {}
+        self.selected = False
         
         self.initUI()
         
         self.addNodeCallbacks()
     
     def initUI(self):
-        wrapper_layout = QVBoxLayout(self)
-        wrapper_layout.setContentsMargins(0, 0, 0, 0)
-       
         
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        class_layout = QGridLayout(self)
+        class_layout.setContentsMargins(0, 0, 0, 0)
         
-        wrapper = QWidget()
-        wrapper_layout.addWidget(wrapper)
-        wrapper.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
-        wrapper.setFixedWidth(90)
-        main_layout = QVBoxLayout()
-        wrapper.setLayout(main_layout)
+        panelbg = QWidget()
+        panelbg.setObjectName("panelbg")
+        class_layout.addWidget(panelbg,0,0,1,1)
+        
+        main_layout = QVBoxLayout(self)
+        class_layout.addLayout(main_layout,0,0,1,1)
+        
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.setFixedWidth(90)
+        
         main_layout.setSpacing(7)
-        main_layout.setContentsMargins(1, 0, 0, 8)
-        wrapper.setObjectName("lightpanel")
+        main_layout.setContentsMargins(1, 1, 1, 8)
+        
         self.setStyleSheet("""
-            #lightpanel {
+            #panelbg {
             background-color: #373737;
             border: 1px solid #000000;
             border-right: 0px solid #000000;
@@ -409,32 +456,13 @@ class LightPanelWidget(QWidget):
             }
         """)
         
-        
-        delete_button = QPushButton()
-        delete_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        # delete_button.setAlignment(Qt.AlignRight)
-        delete_button.setFixedSize(11,11)
-        delete_icon = hou.qt.Icon("BUTTONS_delete", 10, 10)
-        delete_button.setIcon(delete_icon)
-        delete_button.clicked.connect(self.removeFromMixer)
-        
         # Label Light Name
         self.light_label = QLabel(self.name)
         self.light_label.setAlignment(Qt.AlignCenter)
         self.light_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.light_label.setFixedHeight(25)
         self.light_label.setStyleSheet( "background-color: #474747;")
-        # main_layout.addWidget(self.light_label)
-        
-        header = QWidget()
-        header_layout = QGridLayout()
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setAlignment(Qt.AlignTop)
-        header.setLayout(header_layout)
-        header_layout.addWidget(self.light_label, 0, 0, 2, 2)
-        header_layout.addWidget(delete_button, 0, 1, 1, 1)
-        main_layout.addWidget(header)
-        # self.light_label.setWidget(delete_button)
+        main_layout.addWidget(self.light_label)
         
         # Toggle Buttons
         toggle_button_style = """
@@ -509,7 +537,6 @@ class LightPanelWidget(QWidget):
         # mute_button.clicked.connect(self.setLightIcon)
         twobuttons_layout.addWidget(mute_button)
         
-        
         self.solo_button = QPushButton()
         self.solo_button.setCheckable(True)
         self.solo_button.setObjectName("solo_button")
@@ -524,8 +551,6 @@ class LightPanelWidget(QWidget):
         twobuttons_layout.addWidget(self.solo_button)
         
         main_layout.addLayout(twobuttons_layout)
-        
-        
         
         # Vertical sliders
         intensity_parm_dict = {
@@ -588,12 +613,7 @@ class LightPanelWidget(QWidget):
         
         sliders_layout = QHBoxLayout()
         sliders_layout.setSpacing(0)
-        
-        
-        
-        
-        
-
+ 
         self.slider_intensity = LabeledSlider(type="intensity")
         self.slider_intensity.setObjectName("intensity")
         self.slider_intensity.setToolTip("Intensity")
@@ -662,7 +682,7 @@ class LightPanelWidget(QWidget):
              
         if self.node_object.parm("light_colorr"):
             self.color_picker = hou.qt.ColorSwatchButton()
-            self.monitorParmChanges("light_colorr", self.color_picker)
+            self.monitorParmChanges("light_colorb", self.color_picker)
             
             if self.node_object.parm("TextureSampler1_color_multiplierr"):
                 self.monitorParmChanges("TextureSampler1_color_multiplierr", self.color_picker)
@@ -675,8 +695,7 @@ class LightPanelWidget(QWidget):
             main_layout.addWidget(self.color_picker, alignment=Qt.AlignHCenter)
       
         
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
-        self.setFixedWidth(90)
+        
         
     def removeSuffix(self, string):
         split_string = string.split(':')
@@ -740,17 +759,38 @@ class LightPanelWidget(QWidget):
         
         if isUseTexture:
             if not isUseTexture.eval():
-                self.node_object.parm("light_colorr").set(self.color_picker.color().red() / 255)
-                self.node_object.parm("light_colorg").set(self.color_picker.color().green() / 255)
-                self.node_object.parm("light_colorb").set(self.color_picker.color().blue() / 255)
+                r = self.color_picker.color().red() / 255
+                g = self.color_picker.color().green() / 255
+                b = self.color_picker.color().blue() / 255
+
+                final_color = {
+                    "light_colorr": r,
+                    "light_colorg": g,
+                    "light_colorb": b
+                }
+                self.node_object.setParms(final_color)
             else:
-                self.node_object.parm("TextureSampler1_color_multiplierr").set(self.color_picker.color().red() / 255)
-                self.node_object.parm("TextureSampler1_color_multiplierg").set(self.color_picker.color().green() / 255)
-                self.node_object.parm("TextureSampler1_color_multiplierb").set(self.color_picker.color().blue() / 255)
+                r = self.color_picker.color().red() / 255
+                g = self.color_picker.color().green() / 255
+                b = self.color_picker.color().blue() / 255
+                
+                final_color = {
+                    "TextureSampler1_color_multiplierr": r,
+                    "TextureSampler1_color_multiplierg": g,
+                    "TextureSampler1_color_multiplierb": b
+                }
+                self.node_object.setParms(final_color)
         else:
-            self.node_object.parm("light_colorr").set(self.color_picker.color().red() / 255)
-            self.node_object.parm("light_colorg").set(self.color_picker.color().green() / 255)
-            self.node_object.parm("light_colorb").set(self.color_picker.color().blue() / 255)
+            r = self.color_picker.color().red() / 255
+            g = self.color_picker.color().green() / 255
+            b = self.color_picker.color().blue() / 255
+
+            final_color = {
+                "light_colorr": r,
+                "light_colorg": g,
+                "light_colorb": b
+            }
+            self.node_object.setParms(final_color)
             
     def intensity_dialog(self):
         labels = ("Min", "Value", "Max")
@@ -843,6 +883,22 @@ class LightPanelWidget(QWidget):
                         
                     elif isinstance(widget, QPushButton):
                         widget.setChecked(self.node_object.parm(parm_name).eval())
+                        
+    # def mousePressEvent(self, event):
+    #     if event.button() == Qt.LeftButton:
+    #         self.toggleSelectionState()
+            
+    # def toggleSelectionState(self):
+    #     if not self.highlight.isVisible():
+    #         self.highlight.show()
+    #     else:
+    #         # self.highlight.setGeometry(self.rect())
+    #         # self.highlight.raise_()  # Bring the QRubberBand to the front
+    #         # self.highlight.hide()
+    #         pass
+
+
+    
 
                     
         
@@ -869,7 +925,7 @@ class LightPanelWidget(QWidget):
         if not parent.light_ids:
             parent.showPlaceholderText()
 
-class DropOffArea(QWidget):
+class DropOffArea(QListWidget):
     def __init__(self):
         super().__init__()
         
@@ -879,44 +935,42 @@ class DropOffArea(QWidget):
         self.solo_memory = {}
         self.accepted_nodes = ["rslight", "rslightdome", "rslighties", "rslightportal", "rslightsun"]
         self.is_placeholder_removed = False
+        self.setMinimumHeight(275)
         
         # --------
         
+        self.setSelectionMode(QListWidget.ExtendedSelection)
+        self.setLayoutMode(QListWidget.SinglePass)
+        self.setFlow(QListWidget.LeftToRight)
+        self.setDragDropMode(QListWidget.InternalMove)
+        self.setStyleSheet("""
+                                  QListWidget::item:selected { 
+                                    background-color: rgba(255, 255, 255, 1%); 
+                                    border: 4px solid #B98620;
+                                    border-radius: 5px;
+                                  }
+                                  QListWidget::item:hover {
+                                    /*background-color: red;*/
+                                  }
+                                  """)
 
-        self.wrapper = QWidget()
-        
-        self.wrapper.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        
-        
-        self.wrapper_layout = QHBoxLayout(self)
-        self.wrapper_layout.setContentsMargins(0, 0, 0, 0)
-        
-        
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.scroll.setWidget(self.wrapper)
-        
-        self.wrapper_layout.addWidget(self.scroll)
-        
 
-        self.layout = QHBoxLayout()
-        self.layout.setSpacing(0)
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.wrapper.setLayout(self.layout)
+        # self.setAcceptDrops(True)
         
+        item1 = LightPanelWidget(hou.node('/obj/rslight1'), parent=self)
+        item2 = LightPanelWidget(hou.node('/obj/rslight2'), parent=self)
+        list_item1 = QListWidgetItem()
+        list_item2 = QListWidgetItem()
         
-
-        self.label = QLabel('Drag & drop Redshift Lights here', self)
-        icon = hou.qt.Icon("BUTTONS_material_include", 20, 20)
+        # list_item1.setSizeHint(item1.sizeHint())
+        list_item1.setSizeHint(QSize(90, 100))
+        list_item2.setSizeHint(QSize(90, 100))
         
-        self.label.setAlignment(Qt.AlignCenter)
-        self.layout.addWidget(self.label)
+        self.addItem(list_item1)
+        self.addItem(list_item2)
         
-        self.spacer = QSpacerItem(0, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.layout.addItem(self.spacer)
-
-        self.setAcceptDrops(True)
+        self.setItemWidget(list_item1, item1)
+        self.setItemWidget(list_item2, item2)
     
         
     def validDropInfo(self, drop_info):
