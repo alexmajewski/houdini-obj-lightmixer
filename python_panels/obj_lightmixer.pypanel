@@ -6,13 +6,13 @@
  same interface or of the interfaces menu are not allowed
  in a single file. -->
   <interface name="obj_lightmixer" label="Obj Context Light Mixer" icon="LOP_lightmixer" showNetworkNavigationBar="false" help_url="">
-    <script><![CDATA[from PySide2 import QtWidgets, QtGui
-from PySide2.QtCore import Qt
+    <script><![CDATA[#from PySide2 import QtWidgets, QtGui
+from PySide2.QtCore import Qt, QRect
 from PySide2.QtWidgets import QApplication, QToolTip, QFrame, QListWidget, QListWidgetItem, QScrollArea, QRubberBand, QAbstractButton, QGridLayout, QSizePolicy, QSpacerItem, QCheckBox, QPushButton, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QHBoxLayout
 from PySide2.QtCore import Qt, QMimeData, QSize
-from PySide2.QtGui import QDragEnterEvent, QDropEvent, QColor, QPainter, QPen
+from PySide2.QtGui import QDragEnterEvent, QDropEvent, QColor, QPainter, QPen, QBrush
 
-__version__ = "0.1.5"
+__version__ = "0.2.0"
 __author__ = "Alex Majewski"
 
 class SmoothQSlider(QSlider):
@@ -125,25 +125,13 @@ class SmoothQSlider(QSlider):
             else:
                 new_value = self.maximum() - ((self.maximum() - self.minimum()) * (self.width() - event.x())) / self.width()
             self.setValue(new_value)
+            print(new_value)
             new_value = max(self.minimum(), min(new_value, self.maximum())) * 0.01
             new_value = "{:.2f}".format(new_value)
             tooltip_text = f'Value: {new_value}'
             QToolTip.showText(event.globalPos(), tooltip_text, self)
             
             
-class OverlayWidget(QWidget):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setStyleSheet("border: 2px solid #B98620; border-radius: 3px;")
-        self.setGeometry(parent.geometry())
-
-    def event(self, event):
-        if event.type() == event.MouseButtonPress:
-            # Ignore mouse button press events
-            return False
-        return super().event(event)
 
 class LabeledSlider(QWidget):
     def __init__(self, type="intensity"):
@@ -273,7 +261,7 @@ class LabeledSlider(QWidget):
                 
                 # round to 0.5
                 # dividing by 100 removes the slider multiplier
-                final_tick_value = round((tick_value / 100) * 2) / 2
+                final_tick_value = round((tick_value * 0.01) * 2) / 2
                 self.tick_labels.append(QLabel(f"Æ{final_tick_value}"))
                 self.tick_labels[index].setStyleSheet(font_layout_style + font_style)
                 ticks_layout.addWidget(self.tick_labels[index])
@@ -425,21 +413,29 @@ class LightPanelWidget(QWidget):
         self.monitored_parms = {}
         self.selected = False
         
+        
+        
         self.initUI()
         
         self.addNodeCallbacks()
     
     def initUI(self):
         
-        class_layout = QGridLayout(self)
-        class_layout.setContentsMargins(0, 0, 0, 0)
+        
+    
+        stack_layout = QGridLayout(self)
+        stack_layout.setContentsMargins(0, 0, 0, 0)
         
         panelbg = QWidget()
         panelbg.setObjectName("panelbg")
-        class_layout.addWidget(panelbg,0,0,1,1)
+        stack_layout.addWidget(panelbg,0,0,1,1)
         
         main_layout = QVBoxLayout(self)
-        class_layout.addLayout(main_layout,0,0,1,1)
+        stack_layout.addLayout(main_layout,0,0,1,1)
+        
+        self.highlight = QWidget()
+        stack_layout.addWidget(self.highlight)
+        
         
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.setFixedWidth(90)
@@ -450,6 +446,7 @@ class LightPanelWidget(QWidget):
         self.setStyleSheet("""
             #panelbg {
             background-color: #373737;
+            background-color:transparent;
             border: 1px solid #000000;
             border-right: 0px solid #000000;
             
@@ -507,7 +504,7 @@ class LightPanelWidget(QWidget):
         self.enable_button = QPushButton()
         self.enable_button.setCheckable(True)
         self.enable_button.setChecked(self.node_object.parm("light_enabled").eval())
-        self.monitorParmChanges("light_enabled", self.enable_button)
+        # self.monitorParmChanges("light_enabled", self.enable_button)
         self.enable_icon = hou.qt.Icon(self.setLightIcon(), 20, 20)
         self.enable_button.setIcon(self.enable_icon)
         self.enable_button.setObjectName("enable_button")
@@ -621,7 +618,7 @@ class LightPanelWidget(QWidget):
         
         if intensity_parm:
             self.intensity_value = intensity_parm.eval()
-            self.monitorParmChanges(intensity_parm.name(), self.slider_intensity.slider)
+            # self.monitorParmChanges(intensity_parm.name(), self.slider_intensity.slider)
             
             self.slider_intensity.autoSliderRange(self.slider_intensity, self.intensity_value, type="intensity")
             
@@ -646,7 +643,7 @@ class LightPanelWidget(QWidget):
         
         if exposure_parm:
             self.exposure_value = exposure_parm.eval()
-            self.monitorParmChanges(exposure_parm.name(), self.slider_exposure.slider)
+            # self.monitorParmChanges(exposure_parm.name(), self.slider_exposure.slider)
             
             self.slider_exposure.autoSliderRange(self.slider_exposure, self.exposure_value, type="exposure")
            
@@ -673,7 +670,7 @@ class LightPanelWidget(QWidget):
             self.slider_spread.setValue(int(spread_parm.eval()*100))
             self.slider_spread.setContentsMargins(5, 0, 5, 0)
             self.slider_spread.setToolTip("Spread")
-            self.monitorParmChanges(spread_parm.name(), self.slider_spread)
+            # self.monitorParmChanges(spread_parm.name(), self.slider_spread)
             
             main_layout.addWidget(self.slider_spread)
             
@@ -682,11 +679,11 @@ class LightPanelWidget(QWidget):
              
         if self.node_object.parm("light_colorr"):
             self.color_picker = hou.qt.ColorSwatchButton()
-            self.monitorParmChanges("light_colorb", self.color_picker)
+            # self.monitorParmChanges("light_colorb", self.color_picker)
             
             if self.node_object.parm("TextureSampler1_color_multiplierr"):
-                self.monitorParmChanges("TextureSampler1_color_multiplierr", self.color_picker)
-            
+                # self.monitorParmChanges("TextureSampler1_color_multiplierr", self.color_picker)
+                pass
             self.color_picker.setColor(self.getLightColor())
                 
             self.color_picker.setFixedSize(50, 30)
@@ -695,6 +692,59 @@ class LightPanelWidget(QWidget):
             main_layout.addWidget(self.color_picker, alignment=Qt.AlignHCenter)
       
         
+        # self.highlight = QWidget()
+        # self.highlight.setObjectName("highlight")
+        # self.highlight.setAttribute(Qt.WA_TransparentForMouseEvents)
+        # stack_layout.addWidget(self.highlight,0,0,1,1)
+        # self.highlight.setStyleSheet("background-color: rgba(255,255,255,0.2);")
+    
+    #-------------------------------------------------------------------------------------------------
+        
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            print(self)
+            print(self.parent().parent().selectedItems())
+            if self in self.parent().parent().selectedItems():
+                
+                print("connection successful")
+                
+            else:
+                print("none")
+            self.toggleSelectionState()
+            
+    def toggleSelectionState(self):
+        self.selected = not self.selected
+        print(self.selected)
+    
+    #     if not self.highlight.isVisible():
+    #         self.highlight.show()
+    #     else:
+    #         # self.highlight.setGeometry(self.rect())
+    #         # self.highlight.raise_()  # Bring the QRubberBand to the front
+    #         # self.highlight.hide()
+    #         pass
+
+            
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        print("painting")
+        if self.selected:
+            print("YES")
+            widget_size = self.highlight.size()
+            highlight_rect = QRect(0, 0, widget_size.width(), widget_size.height())
+            highlight_brush = QBrush(QColor(255, 255, 0))  # Yellow highlight color
+            painter.setBrush(highlight_brush)
+            painter.drawRect(highlight_rect)  # Paint the highlight on the entire widget
+        else:
+            print("NO")
+            # painter.eraseRect(self.highlight.rect())  # Clear any previous highlight
+            pass
+
+    def setSelected(self, selected):
+        self.selected = selected
+        self.update()  # Trigger a repaint to show the highlight
+    
+    #-------------------------------------------------------------------------------------------------
         
         
     def removeSuffix(self, string):
@@ -795,7 +845,7 @@ class LightPanelWidget(QWidget):
     def intensity_dialog(self):
         labels = ("Min", "Value", "Max")
         buttons = ("OK", "Cancel")
-        contents = (str(self.slider_intensity.current_min), str(self.intensity_value / 100), str(self.slider_intensity.current_max))
+        contents = (str(self.slider_intensity.current_min), str(self.intensity_value * 0.01), str(self.slider_intensity.current_max))
         dialog = hou.ui.readMultiInput("Set intensity value and range.", input_labels=labels, buttons=buttons, close_choice=1, initial_contents=contents)
         if dialog[0] == 0:
             self.slider_intensity.setSliderRange(self.slider_intensity, float(dialog[1][0]), float(dialog[1][2]))
@@ -807,7 +857,7 @@ class LightPanelWidget(QWidget):
     def exposure_dialog(self):
         labels = ("Min", "Value", "Max")
         buttons = ("OK", "Cancel")
-        contents = (str(self.slider_exposure.current_min), str(self.exposure_value / 100) , str(self.slider_exposure.current_max))
+        contents = (str(self.slider_exposure.current_min), str(self.exposure_value * 0.01) , str(self.slider_exposure.current_max))
         dialog = hou.ui.readMultiInput("Set exposure value and range.", input_labels=labels, buttons=buttons, close_choice=1, initial_contents=contents)
         if dialog[0] == 0:
             self.slider_exposure.setSliderRange(self.slider_exposure, float(dialog[1][0]), float(dialog[1][2]))
@@ -843,17 +893,18 @@ class LightPanelWidget(QWidget):
         layout.addWidget(close_button, alignment=Qt.AlignCenter)   
         dialog.show()
     
-    def eventFilter(self, obj, event):
-        if obj == self.slider and event.type() == QEvent.MouseMove:
-            if event.buttons() & Qt.LeftButton:
-                # Calculate the new slider value based on the mouse position
-                new_value = self.slider.minimum() + \
-                            ((self.slider.maximum() - self.slider.minimum()) *
-                             (event.y() / self.slider.height()))
-                self.slider.setValue(int(new_value))
-                return True
+        # ???
+    # def eventFilter(self, obj, event):
+    #     if obj == self.slider and event.type() == QEvent.MouseMove:
+    #         if event.buttons() & Qt.LeftButton:
+    #             # Calculate the new slider value based on the mouse position
+    #             new_value = self.slider.minimum() + \
+    #                         ((self.slider.maximum() - self.slider.minimum()) *
+    #                          (event.y() / self.slider.height()))
+    #             self.slider.setValue(int(new_value))
+    #             return True
 
-        return super().eventFilter(obj, event)
+    #     return super().eventFilter(obj, event)
         
     def addNodeCallbacks(self):
         self.node_object.addEventCallback((hou.nodeEventType.ParmTupleChanged,), self._onNodeParmChange)
@@ -884,21 +935,8 @@ class LightPanelWidget(QWidget):
                     elif isinstance(widget, QPushButton):
                         widget.setChecked(self.node_object.parm(parm_name).eval())
                         
-    # def mousePressEvent(self, event):
-    #     if event.button() == Qt.LeftButton:
-    #         self.toggleSelectionState()
-            
-    # def toggleSelectionState(self):
-    #     if not self.highlight.isVisible():
-    #         self.highlight.show()
-    #     else:
-    #         # self.highlight.setGeometry(self.rect())
-    #         # self.highlight.raise_()  # Bring the QRubberBand to the front
-    #         # self.highlight.hide()
-    #         pass
 
 
-    
 
                     
         
@@ -945,9 +983,9 @@ class DropOffArea(QListWidget):
         self.setDragDropMode(QListWidget.InternalMove)
         self.setStyleSheet("""
                                   QListWidget::item:selected { 
-                                    background-color: rgba(255, 255, 255, 1%); 
-                                    border: 4px solid #B98620;
-                                    border-radius: 5px;
+                                    background-color: rgba(255, 255, 255, 50%); 
+                                    border: 3px solid #B98620;
+                                    border-radius: 2px;
                                   }
                                   QListWidget::item:hover {
                                     /*background-color: red;*/
@@ -1050,48 +1088,48 @@ class DropOffArea(QListWidget):
         return split_string[0]
 
         
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().hasFormat('text/plain'):
-            event.acceptProposedAction()
+    # def dragEnterEvent(self, event: QDragEnterEvent):
+    #     if event.mimeData().hasFormat('text/plain'):
+    #         event.acceptProposedAction()
 
-    def dropEvent(self, event: QDropEvent):
-        label_index = self.layout.indexOf(self.label)
+    # def dropEvent(self, event: QDropEvent):
+    #     label_index = self.layout.indexOf(self.label)
 
-        data = event.mimeData()
-        if data.hasText():
-            drop_info = data.text()
+    #     data = event.mimeData()
+    #     if data.hasText():
+    #         drop_info = data.text()
             
-            node_paths = drop_info.split('\t')
+    #         node_paths = drop_info.split('\t')
             
             
-            for node_path in node_paths:
-                if self.validDropInfo(node_path):
-                    node = hou.node(node_path)
-                    node_name = node.name()
-                    node_type = node.type().name()
-                    node_id = node.sessionId()
+    #         for node_path in node_paths:
+    #             if self.validDropInfo(node_path):
+    #                 node = hou.node(node_path)
+    #                 node_name = node.name()
+    #                 node_type = node.type().name()
+    #                 node_id = node.sessionId()
                     
                     
                     
-                    if not self.isListed(node_id): 
-                        # Remove placeholder text
-                        if not self.is_placeholder_removed:
-                            if label_index != -1:
-                                self.label.setVisible(False)
+    #                 if not self.isListed(node_id): 
+    #                     # Remove placeholder text
+    #                     if not self.is_placeholder_removed:
+    #                         if label_index != -1:
+    #                             self.label.setVisible(False)
                        
-                                self.spacer.changeSize(0, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
-                            self.is_placeholder_removed = True
-                        # Add Panel
+    #                             self.spacer.changeSize(0, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
+    #                         self.is_placeholder_removed = True
+    #                     # Add Panel
                         
       
-                        self.layout.insertWidget(self.layout.count() - 1, LightPanelWidget(node, parent=self))
-                        self.light_ids.append(node_id)
+    #                     self.layout.insertWidget(self.layout.count() - 1, LightPanelWidget(node, parent=self))
+    #                     self.light_ids.append(node_id)
 
 
             
 def createInterface():
-     root_widget = QtWidgets.QWidget()
-     layout = QtWidgets.QVBoxLayout()
+     root_widget = QWidget()
+     layout = QVBoxLayout()
      layout.setSpacing(0)
      layout.setContentsMargins(0, 0, 0, 0)
 
