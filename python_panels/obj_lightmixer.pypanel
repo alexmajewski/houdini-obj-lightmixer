@@ -7,10 +7,11 @@
  in a single file. -->
   <interface name="obj_lightmixer" label="Obj Context Light Mixer" icon="LOP_lightmixer" showNetworkNavigationBar="false" help_url="">
     <script><![CDATA[#from PySide2 import QtWidgets, QtGui
-from PySide2.QtCore import Qt, QRect
+from PySide2.QtCore import Qt, QRect, QRectF
 from PySide2.QtWidgets import QApplication, QToolTip, QFrame, QListWidget, QListWidgetItem, QScrollArea, QRubberBand, QAbstractButton, QGridLayout, QSizePolicy, QSpacerItem, QCheckBox, QPushButton, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QHBoxLayout
-from PySide2.QtCore import Qt, QMimeData, QSize
-from PySide2.QtGui import QDragEnterEvent, QDropEvent, QColor, QPainter, QPen, QBrush
+from PySide2.QtCore import Qt, QMimeData, QSize, QByteArray, QDataStream
+from PySide2.QtGui import QDragEnterEvent, QDropEvent, QColor, QPainter, QPen, QBrush, QPainterPath
+from PySide2 import QtGui, QtCore
 
 __version__ = "0.2.0"
 __author__ = "Alex Majewski"
@@ -125,7 +126,6 @@ class SmoothQSlider(QSlider):
             else:
                 new_value = self.maximum() - ((self.maximum() - self.minimum()) * (self.width() - event.x())) / self.width()
             self.setValue(new_value)
-            print(new_value)
             new_value = max(self.minimum(), min(new_value, self.maximum())) * 0.01
             new_value = "{:.2f}".format(new_value)
             tooltip_text = f'Value: {new_value}'
@@ -400,19 +400,53 @@ class LabeledSlider(QWidget):
                 self.setSliderRange(object, new_min, new_max)
                 self.setTickLabels(new_min, new_max, type)
         
+class Highlight(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # self.selected = False
+        
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        
+        if self.isSelected():
+            widget_size = self.size()
+            highlight_rect = QRectF(0, 0, widget_size.width(), widget_size.height())
+            border_color = QBrush(QColor(185, 134, 32))
+            border_width = 4
+            border_radius = 6
+            painter.setPen(QPen(border_color, border_width))
+            border_path = QPainterPath()
+            border_path.addRoundedRect(highlight_rect, border_radius, border_radius)
+            painter.drawPath(border_path)
+        else:
+            # painter.eraseRect(self.rect())  # Clear any previous highlight
+            pass
+            
+    def isSelected(self):
+        list = self.parent().parent().parent()
+        selected_items = list.selectedItems()
 
+        for item in selected_items:
+            assigned_widget = list.itemWidget(item) 
+            if self.parent() == assigned_widget:
+                self.parent().selected = True
+                return True
+        self.parent().selected = False
+        return False
+                
 
 class LightPanelWidget(QWidget):
-    def __init__(self, node_object, parent=None):
+    def __init__(self, node_path, parent=None):
         super().__init__(parent)
         
-        self.name = node_object.name()
-        self.type = self.removeSuffix(node_object.type().name())
-       
-        self.node_object = node_object
+        self.node_object = hou.node(node_path)
+        
+        self.name = self.node_object.name()
+        self.type = self.removeSuffix(self.node_object.type().name())
+
+        
         self.monitored_parms = {}
         self.selected = False
-        
         
         
         self.initUI()
@@ -433,20 +467,18 @@ class LightPanelWidget(QWidget):
         main_layout = QVBoxLayout(self)
         stack_layout.addLayout(main_layout,0,0,1,1)
         
-        self.highlight = QWidget()
-        stack_layout.addWidget(self.highlight)
+        
         
         
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.setFixedWidth(90)
         
         main_layout.setSpacing(7)
-        main_layout.setContentsMargins(1, 1, 1, 8)
+        main_layout.setContentsMargins(1, 1, 0, 8)
         
         self.setStyleSheet("""
             #panelbg {
             background-color: #373737;
-            background-color:transparent;
             border: 1px solid #000000;
             border-right: 0px solid #000000;
             
@@ -455,6 +487,7 @@ class LightPanelWidget(QWidget):
         
         # Label Light Name
         self.light_label = QLabel(self.name)
+        self.light_label.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.light_label.setAlignment(Qt.AlignCenter)
         self.light_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.light_label.setFixedHeight(25)
@@ -692,59 +725,9 @@ class LightPanelWidget(QWidget):
             main_layout.addWidget(self.color_picker, alignment=Qt.AlignHCenter)
       
         
-        # self.highlight = QWidget()
-        # self.highlight.setObjectName("highlight")
-        # self.highlight.setAttribute(Qt.WA_TransparentForMouseEvents)
-        # stack_layout.addWidget(self.highlight,0,0,1,1)
-        # self.highlight.setStyleSheet("background-color: rgba(255,255,255,0.2);")
-    
-    #-------------------------------------------------------------------------------------------------
-        
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            print(self)
-            print(self.parent().parent().selectedItems())
-            if self in self.parent().parent().selectedItems():
-                
-                print("connection successful")
-                
-            else:
-                print("none")
-            self.toggleSelectionState()
-            
-    def toggleSelectionState(self):
-        self.selected = not self.selected
-        print(self.selected)
-    
-    #     if not self.highlight.isVisible():
-    #         self.highlight.show()
-    #     else:
-    #         # self.highlight.setGeometry(self.rect())
-    #         # self.highlight.raise_()  # Bring the QRubberBand to the front
-    #         # self.highlight.hide()
-    #         pass
-
-            
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        print("painting")
-        if self.selected:
-            print("YES")
-            widget_size = self.highlight.size()
-            highlight_rect = QRect(0, 0, widget_size.width(), widget_size.height())
-            highlight_brush = QBrush(QColor(255, 255, 0))  # Yellow highlight color
-            painter.setBrush(highlight_brush)
-            painter.drawRect(highlight_rect)  # Paint the highlight on the entire widget
-        else:
-            print("NO")
-            # painter.eraseRect(self.highlight.rect())  # Clear any previous highlight
-            pass
-
-    def setSelected(self, selected):
-        self.selected = selected
-        self.update()  # Trigger a repaint to show the highlight
-    
-    #-------------------------------------------------------------------------------------------------
+        self.highlight = Highlight(parent=self)
+        self.highlight.setAttribute(Qt.WA_TransparentForMouseEvents)
+        stack_layout.addWidget(self.highlight,0,0,1,1)
         
         
     def removeSuffix(self, string):
@@ -892,19 +875,6 @@ class LightPanelWidget(QWidget):
         close_button.clicked.connect(lambda: dialog.hide())
         layout.addWidget(close_button, alignment=Qt.AlignCenter)   
         dialog.show()
-    
-        # ???
-    # def eventFilter(self, obj, event):
-    #     if obj == self.slider and event.type() == QEvent.MouseMove:
-    #         if event.buttons() & Qt.LeftButton:
-    #             # Calculate the new slider value based on the mouse position
-    #             new_value = self.slider.minimum() + \
-    #                         ((self.slider.maximum() - self.slider.minimum()) *
-    #                          (event.y() / self.slider.height()))
-    #             self.slider.setValue(int(new_value))
-    #             return True
-
-    #     return super().eventFilter(obj, event)
         
     def addNodeCallbacks(self):
         self.node_object.addEventCallback((hou.nodeEventType.ParmTupleChanged,), self._onNodeParmChange)
@@ -934,10 +904,6 @@ class LightPanelWidget(QWidget):
                         
                     elif isinstance(widget, QPushButton):
                         widget.setChecked(self.node_object.parm(parm_name).eval())
-                        
-
-
-
                     
         
     def _onNodeNameChange(self, node, **kwargs):
@@ -953,15 +919,24 @@ class LightPanelWidget(QWidget):
         self.removeSelf()
      
     def removeSelf(self):
-        parent = self.parent().parent().parent().parent()
-        parent.layout.removeWidget(self)
-        self.deleteLater()
+        list = self.parent().parent()
+        
+        items = list.findItems("", Qt.MatchContains)
+           
+        for item in items:
+            if list.itemWidget(item) == self:
+                list.takeItem(list.row(item))
+                break
+        
         node_id = self.node_object.sessionId()
 
-        if node_id in parent.light_ids:
-            parent.light_ids.remove(node_id)
-        if not parent.light_ids:
-            parent.showPlaceholderText()
+        if node_id in list.light_ids:
+            list.light_ids.remove(node_id)
+        # if not parent.light_ids:
+        #     parent.showPlaceholderText()
+            
+        
+    
 
 class DropOffArea(QListWidget):
     def __init__(self):
@@ -974,6 +949,7 @@ class DropOffArea(QListWidget):
         self.accepted_nodes = ["rslight", "rslightdome", "rslighties", "rslightportal", "rslightsun"]
         self.is_placeholder_removed = False
         self.setMinimumHeight(275)
+        self._placeholder_text = "Drag & drop Redshift lights here"
         
         # --------
         
@@ -981,36 +957,51 @@ class DropOffArea(QListWidget):
         self.setLayoutMode(QListWidget.SinglePass)
         self.setFlow(QListWidget.LeftToRight)
         self.setDragDropMode(QListWidget.InternalMove)
-        self.setStyleSheet("""
-                                  QListWidget::item:selected { 
-                                    background-color: rgba(255, 255, 255, 50%); 
-                                    border: 3px solid #B98620;
-                                    border-radius: 2px;
-                                  }
-                                  QListWidget::item:hover {
-                                    /*background-color: red;*/
-                                  }
-                                  """)
+        self.setStyleSheet("""    
+                                QListWidget {
+                                background-color: #3A3A3A;
+                                }
+                                QListWidget::item:selected { 
+                                background-color: transparent;
+                                }
+                                QListWidget::item:hover {
+                                background-color: transparent;
+                                }
+                                """)
 
 
-        # self.setAcceptDrops(True)
+        self.setAcceptDrops(True)
         
-        item1 = LightPanelWidget(hou.node('/obj/rslight1'), parent=self)
-        item2 = LightPanelWidget(hou.node('/obj/rslight2'), parent=self)
-        list_item1 = QListWidgetItem()
-        list_item2 = QListWidgetItem()
-        
-        # list_item1.setSizeHint(item1.sizeHint())
-        list_item1.setSizeHint(QSize(90, 100))
-        list_item2.setSizeHint(QSize(90, 100))
-        
-        self.addItem(list_item1)
-        self.addItem(list_item2)
-        
-        self.setItemWidget(list_item1, item1)
-        self.setItemWidget(list_item2, item2)
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Delete:
+            self.removeSelectedItems()
+        else:
+            super().keyPressEvent(event)
+            
+    def removeSelectedItems(self):
+        selected_items = self.selectedItems()
+        for item in selected_items:
+            widget = self.itemWidget(item)
+            node_id = widget.node_object.sessionId()
+            self.takeItem(self.row(item))
+
+            if node_id in self.light_ids:
+                self.light_ids.remove(node_id)
     
+    def newListItem(self, path):
+        node_path = path
+        widget = LightPanelWidget((node_path), parent=self)
         
+        
+        list_item = QListWidgetItem()
+        
+        list_item.setSizeHint(QSize(90,100))
+        
+        self.addItem(list_item)
+        self.setItemWidget(list_item, widget)
+     
+    
+    
     def validDropInfo(self, drop_info):
         
         if drop_info.startswith("/obj/"):
@@ -1024,9 +1015,68 @@ class DropOffArea(QListWidget):
         else:
             print("Only OBJ context nodes are allowed.")
             return False
+            
+    # disappearing widgets bug fix
+    def dragMoveEvent(self, e):
+        mime_data = e.mimeData()
         
+        
+        if (
+            (self.row(self.itemAt(e.pos())) == self.currentRow() + 1)
+            or (self.currentRow() == self.count() - 1 and self.row(self.itemAt(e.pos())) == -1)
+        ):  
+            if e.mimeData().hasFormat('application/x-qabstractitemmodeldatalist'):
+                e.ignore()
+            else:
+                #allow drag and dropping nodes into mixer
+                pass
+        else:
+            super().dragMoveEvent(e)
+            
+    def dropEvent(self, event: QDropEvent):
+        data = event.mimeData()
+        if data.hasText():
+            drop_info = data.text()
+            node_paths = drop_info.split('\t')
+            for node_path in node_paths:
+                if self.validDropInfo(node_path):
+                    node = hou.node(node_path)
+                    node_name = node.name()
+                    node_type = node.type().name()
+                    node_id = node.sessionId()
+                    
+                    if not self.isListed(node_id): 
+                        self.newListItem(node_path)
+                        self.light_ids.append(node_id)     
+        super().dropEvent(event)
+            
+    
+    @property
+    def placeholder_text(self):
+        return self._placeholder_text
+
+    @placeholder_text.setter
+    def placeholder_text(self, text):
+        self._placeholder_text = text
+        self.update()
+        
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        
+        # Draw the placeholder text in the middle of the widget when it's empty
+        if self.count() == 0:
+            painter = QtGui.QPainter(self.viewport())
+            painter.save()
+            col = self.palette().placeholderText().color()
+            painter.setPen(col)
+            fm = self.fontMetrics()
+            elided_text = fm.elidedText(
+                self.placeholder_text, QtCore.Qt.ElideRight, self.viewport().width()
+            )
+            painter.drawText(self.viewport().rect(), QtCore.Qt.AlignCenter, elided_text)
+            painter.restore()
+    
     def isListed(self, node_id):
-        # node_name = node_object.name()
         if node_id in self.light_ids:
             return True
         else:
@@ -1079,63 +1129,25 @@ class DropOffArea(QListWidget):
                 
             else:
                 light_panel.enable_button.setEnabled(True)
-
-                
-              
         
     def removeSuffix(self, string):
         split_string = string.split(':')
         return split_string[0]
 
-        
-    # def dragEnterEvent(self, event: QDragEnterEvent):
-    #     if event.mimeData().hasFormat('text/plain'):
-    #         event.acceptProposedAction()
-
-    # def dropEvent(self, event: QDropEvent):
-    #     label_index = self.layout.indexOf(self.label)
-
-    #     data = event.mimeData()
-    #     if data.hasText():
-    #         drop_info = data.text()
-            
-    #         node_paths = drop_info.split('\t')
-            
-            
-    #         for node_path in node_paths:
-    #             if self.validDropInfo(node_path):
-    #                 node = hou.node(node_path)
-    #                 node_name = node.name()
-    #                 node_type = node.type().name()
-    #                 node_id = node.sessionId()
-                    
-                    
-                    
-    #                 if not self.isListed(node_id): 
-    #                     # Remove placeholder text
-    #                     if not self.is_placeholder_removed:
-    #                         if label_index != -1:
-    #                             self.label.setVisible(False)
-                       
-    #                             self.spacer.changeSize(0, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
-    #                         self.is_placeholder_removed = True
-    #                     # Add Panel
-                        
-      
-    #                     self.layout.insertWidget(self.layout.count() - 1, LightPanelWidget(node, parent=self))
-    #                     self.light_ids.append(node_id)
-
-
             
 def createInterface():
      root_widget = QWidget()
-     layout = QVBoxLayout()
+     layout = QGridLayout()
      layout.setSpacing(0)
      layout.setContentsMargins(0, 0, 0, 0)
-
-     layout.addWidget(DropOffArea())
+     bg = QWidget()
+     bg.setStyleSheet("background-color:red;")
+     bg.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+     layout.addWidget(bg, 0,0,1,1)
+     layout.addWidget(DropOffArea(),0,0,1,1)
      
      root_widget.setLayout(layout)
+     root_widget.setCursor(Qt.ArrowCursor)
 
      return root_widget
 ]]></script>
