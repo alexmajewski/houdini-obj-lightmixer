@@ -825,7 +825,7 @@ class LightPanelWidget(QWidget):
         labels = ("Min", "Value", "Max")
         buttons = ("OK", "Cancel")
         contents = (str(self.slider_intensity.current_min), str(self.intensity_value * 0.01), str(self.slider_intensity.current_max))
-        dialog = hou.ui.readMultiInput("Set intensity value and range.", input_labels=labels, buttons=buttons, close_choice=1, initial_contents=contents)
+        dialog = hou.ui.readMultiInput("Set intensity value and range.", input_labels=labels, buttons=buttons, close_choice=1, initial_contents=contents, title="Set light intensity")
         if dialog[0] == 0:
             self.slider_intensity.setSliderRange(self.slider_intensity, float(dialog[1][0]), float(dialog[1][2]))
             self.intensity_value = float(dialog[1][1]) *100
@@ -837,7 +837,7 @@ class LightPanelWidget(QWidget):
         labels = ("Min", "Value", "Max")
         buttons = ("OK", "Cancel")
         contents = (str(self.slider_exposure.current_min), str(self.exposure_value * 0.01) , str(self.slider_exposure.current_max))
-        dialog = hou.ui.readMultiInput("Set exposure value and range.", input_labels=labels, buttons=buttons, close_choice=1, initial_contents=contents)
+        dialog = hou.ui.readMultiInput("Set exposure value and range.", input_labels=labels, buttons=buttons, close_choice=1, initial_contents=contents,  title="Set light exposure")
         if dialog[0] == 0:
             self.slider_exposure.setSliderRange(self.slider_exposure, float(dialog[1][0]), float(dialog[1][2]))
             self.exposure_value = float(dialog[1][1])*100
@@ -851,6 +851,7 @@ class LightPanelWidget(QWidget):
             
         #ui
         dialog = hou.qt.Dialog()
+        dialog.setWindowTitle("Resize light")
         layout = QVBoxLayout()
         layout.setSpacing(10)
         dialog.setLayout(layout)
