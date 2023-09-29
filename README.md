@@ -8,7 +8,9 @@ Only Redshift is supported.
 
 ## How to use
 
-Drag and drop Redshift lights from the network onto the Light Mixer panel to control them. If any buttons are disabled or missing, that means they aren't available for the chosen light.
+[![Obj Lightmixer v0.1.5](https://i.imgur.com/TpSkla3.jpg)](https://www.youtube.com/watch?v=d8Z15r0uHvQ)
+
+Drag and drop Redshift lights from the network onto the Light Mixer panel to control them. If any buttons are disabled or missing, that means they aren't available for the chosen light type.
 
 ### Beta v0.1.5 info:
 - not implemented: re-ordering of lights in the panel
