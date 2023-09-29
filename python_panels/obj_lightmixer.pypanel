@@ -918,18 +918,14 @@ class LightPanelWidget(QWidget):
      
     def removeSelf(self):
         node_id = self.node_object.sessionId()
-        
         list = self.parent().parent()
-        
         items = list.findItems("", Qt.MatchContains)
            
         for item in items:
             if list.itemWidget(item) == self:
                 list.takeItem(list.row(item))
                 break
-        
-        
-        
+
         if node_id in list.light_ids:
             list.light_ids.remove(node_id)
 
@@ -966,9 +962,8 @@ class DropOffArea(QListWidget):
                                 background-color: transparent;
                                 }
                                 """)
-
-
         self.setAcceptDrops(True)
+        
         
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Delete:
@@ -986,6 +981,13 @@ class DropOffArea(QListWidget):
 
             if node_id in self.light_ids:
                 self.light_ids.remove(node_id)
+    def removeAllChildCallbacks(self):
+        items = list.findItems("", Qt.MatchContains)
+           
+        for item in items:
+            if list.itemWidget(item) == self:
+                list.takeItem(list.row(item))
+                break
     
     def newListItem(self, path):
         node_path = path
@@ -1130,23 +1132,22 @@ class DropOffArea(QListWidget):
     def removeSuffix(self, string):
         split_string = string.split(':')
         return split_string[0]
+        
+    def closeEvent(self, event):
+        items = self.findItems("", Qt.MatchContains)
+           
+        for item in items:
+            widget = self.itemWidget(item)
+            widget.removeCallbacks()
+        
 
             
 def createInterface():
-     root_widget = QWidget()
-     layout = QGridLayout()
-     layout.setSpacing(0)
-     layout.setContentsMargins(0, 0, 0, 0)
-     bg = QWidget()
-     bg.setStyleSheet("background-color:red;")
-     bg.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-     layout.addWidget(bg, 0,0,1,1)
-     layout.addWidget(DropOffArea(),0,0,1,1)
-     
-     root_widget.setLayout(layout)
+     root_widget = DropOffArea()
      root_widget.setCursor(Qt.ArrowCursor)
 
      return root_widget
+     
 ]]></script>
     <includeInPaneTabMenu menu_position="0" create_separator="false"/>
     <includeInToolbarMenu menu_position="109" create_separator="false"/>
