@@ -19,9 +19,6 @@ __author__ = "Alex Majewski"
 class SmoothQSlider(QSlider):
     def __init__(self):
         super().__init__()
-        # self.setMinimumHeight(200)
-        
-        # self.setOrientation(Qt.Vertical)
 
         self.styles = """
         
@@ -403,7 +400,7 @@ class LabeledSlider(QWidget):
 class Highlight(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        # self.selected = False
+        self.selected = False
         
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -419,7 +416,6 @@ class Highlight(QWidget):
             border_path.addRoundedRect(highlight_rect, border_radius, border_radius)
             painter.drawPath(border_path)
         else:
-            # painter.eraseRect(self.rect())  # Clear any previous highlight
             pass
             
     def isSelected(self):
@@ -429,9 +425,9 @@ class Highlight(QWidget):
         for item in selected_items:
             assigned_widget = list.itemWidget(item) 
             if self.parent() == assigned_widget:
-                self.parent().selected = True
+                self.selected = True
                 return True
-        self.parent().selected = False
+        self.selected = False
         return False
                 
 
@@ -446,7 +442,7 @@ class LightPanelWidget(QWidget):
 
         
         self.monitored_parms = {}
-        self.selected = False
+        # self.selected = False
         
         
         self.initUI()
@@ -537,7 +533,7 @@ class LightPanelWidget(QWidget):
         self.enable_button = QPushButton()
         self.enable_button.setCheckable(True)
         self.enable_button.setChecked(self.node_object.parm("light_enabled").eval())
-        # self.monitorParmChanges("light_enabled", self.enable_button)
+        self.monitorParmChanges("light_enabled", self.enable_button)
         self.enable_icon = hou.qt.Icon(self.setLightIcon(), 20, 20)
         self.enable_button.setIcon(self.enable_icon)
         self.enable_button.setObjectName("enable_button")
@@ -651,7 +647,7 @@ class LightPanelWidget(QWidget):
         
         if intensity_parm:
             self.intensity_value = intensity_parm.eval()
-            # self.monitorParmChanges(intensity_parm.name(), self.slider_intensity.slider)
+            self.monitorParmChanges(intensity_parm.name(), self.slider_intensity.slider)
             
             self.slider_intensity.autoSliderRange(self.slider_intensity, self.intensity_value, type="intensity")
             
@@ -676,7 +672,7 @@ class LightPanelWidget(QWidget):
         
         if exposure_parm:
             self.exposure_value = exposure_parm.eval()
-            # self.monitorParmChanges(exposure_parm.name(), self.slider_exposure.slider)
+            self.monitorParmChanges(exposure_parm.name(), self.slider_exposure.slider)
             
             self.slider_exposure.autoSliderRange(self.slider_exposure, self.exposure_value, type="exposure")
            
@@ -703,7 +699,7 @@ class LightPanelWidget(QWidget):
             self.slider_spread.setValue(int(spread_parm.eval()*100))
             self.slider_spread.setContentsMargins(5, 0, 5, 0)
             self.slider_spread.setToolTip("Spread")
-            # self.monitorParmChanges(spread_parm.name(), self.slider_spread)
+            self.monitorParmChanges(spread_parm.name(), self.slider_spread)
             
             main_layout.addWidget(self.slider_spread)
             
@@ -712,10 +708,10 @@ class LightPanelWidget(QWidget):
              
         if self.node_object.parm("light_colorr"):
             self.color_picker = hou.qt.ColorSwatchButton()
-            # self.monitorParmChanges("light_colorb", self.color_picker)
+            self.monitorParmChanges("light_colorb", self.color_picker)
             
             if self.node_object.parm("TextureSampler1_color_multiplierr"):
-                # self.monitorParmChanges("TextureSampler1_color_multiplierr", self.color_picker)
+                self.monitorParmChanges("TextureSampler1_color_multiplierr", self.color_picker)
                 pass
             self.color_picker.setColor(self.getLightColor())
                 
@@ -913,12 +909,15 @@ class LightPanelWidget(QWidget):
         
     def _onNodeDeletion(self, **kwargs):
         self.removeSelf()
+        
     
     def removeFromMixer(self):
         self.removeCallbacks()
         self.removeSelf()
      
     def removeSelf(self):
+        node_id = self.node_object.sessionId()
+        
         list = self.parent().parent()
         
         items = list.findItems("", Qt.MatchContains)
@@ -928,12 +927,11 @@ class LightPanelWidget(QWidget):
                 list.takeItem(list.row(item))
                 break
         
-        node_id = self.node_object.sessionId()
-
+        
+        
         if node_id in list.light_ids:
             list.light_ids.remove(node_id)
-        # if not parent.light_ids:
-        #     parent.showPlaceholderText()
+
             
         
     
@@ -947,7 +945,6 @@ class DropOffArea(QListWidget):
         self.light_ids = []
         self.solo_memory = {}
         self.accepted_nodes = ["rslight", "rslightdome", "rslighties", "rslightportal", "rslightsun"]
-        self.is_placeholder_removed = False
         self.setMinimumHeight(275)
         self._placeholder_text = "Drag & drop Redshift lights here"
         
@@ -982,8 +979,9 @@ class DropOffArea(QListWidget):
         selected_items = self.selectedItems()
         for item in selected_items:
             widget = self.itemWidget(item)
+            widget.removeFromMixer()
             node_id = widget.node_object.sessionId()
-            self.takeItem(self.row(item))
+            # self.takeItem(self.row(item))
 
             if node_id in self.light_ids:
                 self.light_ids.remove(node_id)
@@ -1067,8 +1065,13 @@ class DropOffArea(QListWidget):
         if self.count() == 0:
             painter = QtGui.QPainter(self.viewport())
             painter.save()
-            col = self.palette().placeholderText().color()
-            painter.setPen(col)
+            text_color = QtGui.QColor(127, 127, 127) 
+            painter.setPen(text_color)
+            
+            font = QtGui.QFont()
+            font.setPointSize(9)
+            painter.setFont(font)
+            
             fm = self.fontMetrics()
             elided_text = fm.elidedText(
                 self.placeholder_text, QtCore.Qt.ElideRight, self.viewport().width()
@@ -1086,13 +1089,6 @@ class DropOffArea(QListWidget):
         if node_id in self.light_ids:
             self.light_ids.remove(node_id)
     
-    def showPlaceholderText(self):
-        self.label.setVisible(True)
-        self.layout.removeItem(self.spacer)
-        self.spacer = QSpacerItem(0, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.layout.addItem(self.spacer)
-
-        self.is_placeholder_removed = False
 
         
     def toggleSolo(self, object, node_object):
